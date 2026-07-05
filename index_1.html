@@ -1,0 +1,3818 @@
+<!DOCTYPE html>
+<!--
+  BubbleMemo
+  Copyright (c) 2026 kitamuraproduction. All rights reserved.
+  本ソースコードの無断使用・複製・改変・再配布（改変版の公開を含む）を禁止します。
+  Unauthorized use, copying, modification, or redistribution of this source code
+  (including publishing modified versions) is strictly prohibited.
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BubbleMemo">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<title>BubbleMemo</title>
+<style>
+:root {
+  --paper: #f6f8fb;
+  --panel: rgba(255, 255, 255, .88);
+  --ink: #172033;
+  --muted: #657085;
+  --line: rgba(94, 111, 132, .32);
+  --accent: #3578e5;
+  --accent-soft: rgba(53, 120, 229, .14);
+  --danger: #e94861;
+  --pump: #1f9d68;
+  --relation: #7257d8;
+  --shadow: 0 14px 36px rgba(31, 49, 76, .15);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .38;
+  cursor: default;
+}
+
+#app,
+#stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#stage {
+  background:
+    linear-gradient(rgba(82, 108, 140, .13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(82, 108, 140, .13) 1px, transparent 1px);
+  background-size: var(--grid-size, 56px) var(--grid-size, 56px);
+  background-position: var(--grid-x, 0) var(--grid-y, 0);
+}
+
+#mapLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#mapLayer[hidden] {
+  display: none;
+}
+
+.map-svg {
+  position: absolute;
+  overflow: visible;
+  opacity: .28;
+}
+
+.map-land {
+  fill: rgba(55, 92, 126, .24);
+  stroke: rgba(55, 92, 126, .68);
+  stroke-width: 10;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-line {
+  fill: none;
+  stroke: rgba(55, 92, 126, .34);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-label {
+  fill: rgba(23, 32, 51, .62);
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, .72);
+  stroke-width: 9px;
+}
+
+.city-label {
+  display: none;
+  font-size: 22px;
+}
+
+#mapLayer.show-cities .city-label {
+  display: block;
+}
+
+#linkLayer {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.link-visible {
+  pointer-events: none;
+  stroke: rgba(101, 112, 133, .62);
+  stroke-linecap: round;
+}
+
+.link-visible.selected {
+  stroke: var(--relation);
+  filter: drop-shadow(0 0 5px rgba(114, 87, 216, .42));
+}
+
+.link-hit {
+  pointer-events: stroke;
+  stroke: transparent;
+  stroke-width: 30;
+  cursor: pointer;
+}
+
+#lassoCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 7;
+  pointer-events: none;
+}
+
+#bubbleLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  line-height: 1.32;
+  font-weight: 800;
+  word-break: break-word;
+  white-space: pre-line;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, .98), rgba(255, 255, 255, .72) 34%, rgba(159, 211, 255, .38) 78%);
+  border: 1px solid rgba(255, 255, 255, .96);
+  box-shadow: 0 13px 31px rgba(48, 88, 126, .18), inset 0 0 20px rgba(255, 255, 255, .72);
+  transform-origin: center;
+  pointer-events: auto;
+  cursor: grab;
+  transition: border-color .12s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+
+.bubble.group {
+  color: rgba(23, 32, 51, .36);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.group-blob {
+  position: absolute;
+  inset: -24%;
+  width: 148%;
+  height: 148%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.group-blob-path {
+  fill: url(#groupBlobFill);
+  stroke: rgba(53, 120, 229, .46);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.bubble.selected .group-blob-path {
+  stroke: rgba(53, 120, 229, .98);
+}
+
+.bubble.drop-target .group-blob-path {
+  stroke: rgba(31, 157, 104, .96);
+}
+
+.bubble.relation {
+  background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, .98), rgba(248, 246, 255, .75) 38%, rgba(184, 170, 248, .40) 82%);
+  border-color: rgba(114, 87, 216, .52);
+}
+
+.bubble.selected {
+  border-color: rgba(53, 120, 229, .98);
+  box-shadow: 0 15px 36px rgba(48, 88, 126, .19), 0 0 0 4px var(--accent-soft), inset 0 0 20px rgba(255, 255, 255, .76);
+}
+
+.bubble.multi-selected {
+  border-color: rgba(31, 157, 104, .96);
+  box-shadow: 0 15px 36px rgba(48, 88, 126, .18), 0 0 0 4px rgba(31, 157, 104, .15), inset 0 0 20px rgba(255, 255, 255, .76);
+}
+
+.bubble.connecting {
+  border-color: rgba(238, 144, 48, .95);
+  box-shadow: 0 15px 36px rgba(48, 88, 126, .18), 0 0 0 5px rgba(238, 144, 48, .16), inset 0 0 20px rgba(255, 255, 255, .74);
+}
+
+.bubble.drop-target {
+  border-color: rgba(31, 157, 104, .96);
+  box-shadow: 0 15px 36px rgba(48, 88, 126, .17), 0 0 0 6px rgba(31, 157, 104, .14), inset 0 0 24px rgba(255, 255, 255, .80);
+}
+
+.bubble.group.selected,
+.bubble.group.drop-target {
+  border: 0;
+  box-shadow: none;
+}
+
+.bubble.pop::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: inherit;
+  border: 3px solid rgba(233, 72, 97, .68);
+  animation: burstRing .14s linear both;
+  pointer-events: none;
+}
+
+.bubble.pop {
+  animation: bubblePop .14s linear forwards;
+}
+
+.bubble.shell-break {
+  animation: shellBreak .32s cubic-bezier(.18, .82, .18, 1) forwards;
+}
+
+@keyframes bubblePop {
+  0% { opacity: 1; }
+  20% { opacity: .35; }
+  100% { opacity: 0; }
+}
+
+@keyframes burstRing {
+  0% { opacity: .9; }
+  100% { opacity: 0; }
+}
+
+@keyframes shellBreak {
+  0% { opacity: 1; filter: blur(0); scale: 1; }
+  45% { opacity: .92; filter: blur(.2px); scale: 1.04 .96; }
+  100% { opacity: 0; filter: blur(4px); scale: 1.16; }
+}
+
+.group-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  z-index: 2;
+  min-width: 116px;
+  max-width: 230px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .93);
+  border: 1px solid rgba(53, 120, 229, .48);
+  box-shadow: 0 8px 18px rgba(31, 49, 76, .12);
+  color: rgba(23, 32, 51, .84);
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab;
+  transform-origin: bottom center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+
+.toolbar {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+}
+
+.modebar {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, .94);
+  box-shadow: 0 8px 24px rgba(31, 49, 76, .13);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.icon-btn svg {
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn.active.pin {
+  background: var(--danger);
+  color: white;
+}
+
+.icon-btn.active.pump {
+  background: var(--pump);
+  color: white;
+}
+
+.icon-btn.active.lasso {
+  background: var(--relation);
+  color: white;
+}
+
+.align-tool {
+  position: relative;
+}
+
+.align-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: none;
+  gap: 7px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(255, 255, 255, .96);
+  box-shadow: 0 14px 34px rgba(31, 49, 76, .18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.align-tool:hover .align-menu,
+.align-tool.open .align-menu {
+  display: flex;
+}
+
+.align-choice {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(101, 112, 133, .12);
+}
+
+.align-choice:hover,
+.align-choice.active {
+  background: var(--accent);
+  color: white;
+}
+
+.align-choice svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.selection-clear {
+  position: fixed;
+  left: 50%;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  z-index: 33;
+  transform: translateX(-50%);
+  display: none;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, .88);
+  color: white;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgba(31, 49, 76, .22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  touch-action: none;
+}
+
+.selection-clear.show {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selection-size-panel {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  z-index: 33;
+  transform: translateY(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(255, 255, 255, .96);
+  box-shadow: 0 14px 34px rgba(31, 49, 76, .18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.selection-size-panel.show {
+  display: flex;
+}
+
+.size-slider {
+  width: 44px;
+  height: 178px;
+  border-radius: 999px;
+  background: rgba(101, 112, 133, .12);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  font-weight: 900;
+  touch-action: none;
+  user-select: none;
+}
+
+.size-slider svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#inputBar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 32;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, .96);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+#memoInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .95);
+  color: var(--ink);
+  padding: 12px 14px;
+  font-size: 16px;
+  font-weight: 800;
+  user-select: text;
+  touch-action: auto;
+}
+
+#addBtn {
+  min-width: 58px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: white;
+  font-weight: 900;
+}
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(86vw, 520px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, .88);
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#toast.show {
+  opacity: 1;
+}
+
+#sidebarShade {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 32, 51, .22);
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+
+#sidebarShade.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(320px, 86vw);
+  z-index: 42;
+  padding: calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, .94);
+  border-right: 1px solid rgba(255, 255, 255, .92);
+  box-shadow: 16px 0 42px rgba(31, 49, 76, .18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateX(-103%);
+  transition: transform .22s cubic-bezier(.16, 1, .3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#sidebar.open {
+  transform: translateX(0);
+}
+
+#dialogShade {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  background: rgba(23, 32, 51, .26);
+}
+
+#appDialog {
+  position: fixed;
+  left: 50%;
+  top: calc(72px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 48;
+  width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid rgba(255, 255, 255, .94);
+  box-shadow: 0 24px 70px rgba(31, 49, 76, .26);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+#dialogShade[hidden],
+#appDialog[hidden] {
+  display: none;
+}
+
+#appDialog h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+#dialogMessage {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+#dialogInput {
+  width: 100%;
+  border: 1px solid rgba(101, 112, 133, .24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .95);
+  padding: 11px 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  outline: 0;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: auto;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-head h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.field label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  border: 1px solid rgba(101, 112, 133, .24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .88);
+  padding: 10px 11px;
+  color: var(--ink);
+  outline: 0;
+  touch-action: auto;
+  user-select: text;
+}
+
+.primary-btn,
+.secondary-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-weight: 900;
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.secondary-btn {
+  background: rgba(101, 112, 133, .13);
+  color: var(--ink);
+}
+
+.help-text {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+#boardList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.board-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 10px 10px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(101, 112, 133, .18);
+  background: rgba(255, 255, 255, .64);
+}
+
+.board-item.active {
+  border-color: rgba(53, 120, 229, .45);
+  background: rgba(53, 120, 229, .10);
+}
+
+.board-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+}
+
+.board-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.mini-btn:hover {
+  background: rgba(101, 112, 133, .11);
+  color: var(--ink);
+}
+
+.mini-btn.danger:hover {
+  color: var(--danger);
+}
+
+.mini-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.color-palette {
+  position: fixed;
+  top: calc(66px + env(safe-area-inset-top));
+  right: 12px;
+  z-index: 35;
+  display: none;
+  grid-template-columns: repeat(4, 30px);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(255, 255, 255, .96);
+  box-shadow: 0 14px 34px rgba(31, 49, 76, .18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.color-palette.open {
+  display: grid;
+}
+
+.color-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--swatch);
+  border: 2px solid rgba(255, 255, 255, .96);
+  box-shadow: 0 0 0 1px rgba(23, 32, 51, .18), 0 6px 14px rgba(31, 49, 76, .14);
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 3px rgba(53, 120, 229, .28), 0 6px 14px rgba(31, 49, 76, .14);
+}
+
+@media (max-width: 620px) {
+  .toolbar {
+    gap: 6px;
+  }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .toolbar .optional {
+    display: none;
+  }
+
+  #inputBar {
+    left: 8px;
+    right: 8px;
+    padding: 8px;
+  }
+
+  #addBtn {
+    min-width: 52px;
+    padding: 0 13px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage" aria-label="BubbleMemoキャンバス">
+    <div id="mapLayer" hidden></div>
+    <svg id="linkLayer" aria-hidden="true"></svg>
+    <canvas id="lassoCanvas"></canvas>
+    <div id="bubbleLayer"></div>
+  </div>
+
+  <div class="toolbar" aria-label="ツール">
+    <button class="icon-btn" id="menuBtn" title="ボード">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <button class="icon-btn" id="undoBtn" title="Undo">
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-2"/></svg>
+    </button>
+    <button class="icon-btn" id="redoBtn" title="Redo">
+      <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 1 0 0 12h2"/></svg>
+    </button>
+    <button class="icon-btn optional" id="homeBtn" title="中心へ">
+      <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>
+    </button>
+    <button class="icon-btn optional" id="fitBtn" title="全体表示">
+      <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"/></svg>
+    </button>
+    <button class="icon-btn" id="shareBtn" title="共有リンクをコピー">
+      <svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/></svg>
+    </button>
+  </div>
+
+  <div class="modebar" aria-label="モード">
+    <button class="icon-btn lasso" id="lassoBtn" title="投げ縄">
+      <svg viewBox="0 0 24 24"><path d="M7 5c4-3 12-1 13 4 1 6-9 9-14 6-4-2-3-7 1-10Z"/><path d="M9 17c-2 1-4 2-5 4"/></svg>
+    </button>
+    <div class="align-tool" id="alignTool">
+      <button class="icon-btn" id="alignBtn" title="整列">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M7 10h10"/><path d="M10 14h4"/><path d="M12 18h0"/></svg>
+      </button>
+      <div class="align-menu" id="alignMenu" aria-label="整列方向">
+        <button class="align-choice" id="alignVerticalBtn" data-axis="vertical" title="縦に整列">
+          <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 6h8"/><path d="M7 12h10"/><path d="M8 18h8"/></svg>
+        </button>
+        <button class="align-choice" id="alignHorizontalBtn" data-axis="horizontal" title="横に整列">
+          <svg viewBox="0 0 24 24"><path d="M3 12h18"/><path d="M6 8v8"/><path d="M12 7v10"/><path d="M18 8v8"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="icon-btn" id="colorBtn" title="文字色">
+      <svg viewBox="0 0 24 24"><path d="M5 20h14"/><path d="M8 16l4-11 4 11"/><path d="M9.5 12h5"/></svg>
+    </button>
+    <button class="icon-btn pump" id="pumpBtn" title="空気入れ">
+      <svg viewBox="0 0 24 24"><path d="M8 4h8"/><path d="M12 4v5"/><path d="M7 9h10v10H7z"/><path d="M17 14h2a2 2 0 0 1 2 2v2"/><path d="M9 19v2M15 19v2"/></svg>
+    </button>
+    <button class="icon-btn pin" id="pinBtn" title="画鋲">
+      <svg viewBox="0 0 24 24"><path d="M14 4 20 10"/><path d="m12 6 6 6"/><path d="m8 10 6 6"/><path d="M9 15 4 20"/><path d="m7 9 8 8"/></svg>
+    </button>
+  </div>
+
+  <div class="color-palette" id="colorPalette" aria-label="文字色">
+    <button class="color-swatch" data-color="#172033" style="--swatch:#172033" title="黒"></button>
+    <button class="color-swatch" data-color="#3578e5" style="--swatch:#3578e5" title="青"></button>
+    <button class="color-swatch" data-color="#1f9d68" style="--swatch:#1f9d68" title="緑"></button>
+    <button class="color-swatch" data-color="#e94861" style="--swatch:#e94861" title="赤"></button>
+    <button class="color-swatch" data-color="#7257d8" style="--swatch:#7257d8" title="紫"></button>
+    <button class="color-swatch" data-color="#a05a12" style="--swatch:#a05a12" title="茶"></button>
+    <button class="color-swatch" data-color="#f3f7ff" style="--swatch:#f3f7ff" title="白"></button>
+    <button class="color-swatch" data-color="#f4c430" style="--swatch:#f4c430" title="黄"></button>
+  </div>
+
+  <button class="selection-clear" id="selectionClearBtn" title="選択解除">選択解除</button>
+  <div class="selection-size-panel" id="selectionSizePanel" aria-label="選択バブルサイズ">
+    <button class="size-slider" id="selectionSizeSlider" title="上にドラッグで拡大、下にドラッグで縮小">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m6 11 6-6 6 6"/></svg>
+      <span>A</span>
+      <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>
+    </button>
+  </div>
+
+  <form id="inputBar" autocomplete="off">
+    <input id="memoInput" placeholder="メモを書く" autocomplete="off" autocorrect="off" autocapitalize="off">
+    <button id="addBtn" type="submit">追加</button>
+  </form>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div id="sidebarShade"></div>
+  <aside id="sidebar" aria-label="ボード管理">
+    <div class="panel-head">
+      <h1>ボード</h1>
+      <button class="mini-btn" id="closeSidebarBtn" title="閉じる">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="field">
+      <label for="bgSelect">背景</label>
+      <select id="bgSelect">
+        <option value="plain">通常背景</option>
+        <option value="world">世界地図</option>
+        <option value="japan">日本地図</option>
+      </select>
+    </div>
+    <button class="primary-btn" id="newBoardBtn">新規ボード</button>
+    <button class="primary-btn" id="shareLinkBtn">このボードを送る</button>
+    <p class="help-text">ボードのコピーが入ったリンクをクリップボードにコピーします。受け取った人がリンクを開くと、その人の端末に新しいボードとして取り込まれ、以後はお互い別々に編集します（共同編集にはなりません）。</p>
+    <div id="boardList"></div>
+  </aside>
+
+  <div id="dialogShade" hidden></div>
+  <section id="appDialog" role="dialog" aria-modal="true" hidden>
+    <h2 id="dialogTitle"></h2>
+    <p id="dialogMessage" hidden></p>
+    <input id="dialogInput" autocomplete="off" autocorrect="off" autocapitalize="off" hidden>
+    <div class="dialog-actions">
+      <button class="secondary-btn" id="dialogCancelBtn">キャンセル</button>
+      <button class="primary-btn" id="dialogOkBtn">OK</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE = {
+    boards: "bubblememo.private.boards.v1",
+    active: "bubblememo.private.activeBoard.v1",
+    dataPrefix: "bubblememo.private.data.",
+    importedShares: "bubblememo.private.importedShares.v1"
+  };
+
+  const MAX_HISTORY = 11;
+  const MIN_ZOOM = 0.08;
+  const MAX_ZOOM = 18;
+  const GROUP_FIT_PADDING = 28;
+  const SHARE_PHRASE = "バブル共有するねー";
+  // 無料プランのボード上限。有料化システム導入時は、購入状態に応じて
+  // canCreateBoard() が true を返すように差し替える。
+  const MAX_FREE_BOARDS = 5;
+
+  function canCreateBoard() {
+    return boards.length < MAX_FREE_BOARDS;
+  }
+
+  const els = {
+    stage: document.getElementById("stage"),
+    mapLayer: document.getElementById("mapLayer"),
+    linkLayer: document.getElementById("linkLayer"),
+    bubbleLayer: document.getElementById("bubbleLayer"),
+    lassoCanvas: document.getElementById("lassoCanvas"),
+    inputBar: document.getElementById("inputBar"),
+    input: document.getElementById("memoInput"),
+    addBtn: document.getElementById("addBtn"),
+    toast: document.getElementById("toast"),
+    menuBtn: document.getElementById("menuBtn"),
+    undoBtn: document.getElementById("undoBtn"),
+    redoBtn: document.getElementById("redoBtn"),
+    homeBtn: document.getElementById("homeBtn"),
+    fitBtn: document.getElementById("fitBtn"),
+    shareBtn: document.getElementById("shareBtn"),
+    lassoBtn: document.getElementById("lassoBtn"),
+    alignTool: document.getElementById("alignTool"),
+    alignBtn: document.getElementById("alignBtn"),
+    alignVerticalBtn: document.getElementById("alignVerticalBtn"),
+    alignHorizontalBtn: document.getElementById("alignHorizontalBtn"),
+    colorBtn: document.getElementById("colorBtn"),
+    colorPalette: document.getElementById("colorPalette"),
+    selectionClearBtn: document.getElementById("selectionClearBtn"),
+    selectionSizePanel: document.getElementById("selectionSizePanel"),
+    selectionSizeSlider: document.getElementById("selectionSizeSlider"),
+    pumpBtn: document.getElementById("pumpBtn"),
+    pinBtn: document.getElementById("pinBtn"),
+    sidebar: document.getElementById("sidebar"),
+    sidebarShade: document.getElementById("sidebarShade"),
+    closeSidebarBtn: document.getElementById("closeSidebarBtn"),
+    bgSelect: document.getElementById("bgSelect"),
+    newBoardBtn: document.getElementById("newBoardBtn"),
+    shareLinkBtn: document.getElementById("shareLinkBtn"),
+    boardList: document.getElementById("boardList"),
+    dialogShade: document.getElementById("dialogShade"),
+    appDialog: document.getElementById("appDialog"),
+    dialogTitle: document.getElementById("dialogTitle"),
+    dialogMessage: document.getElementById("dialogMessage"),
+    dialogInput: document.getElementById("dialogInput"),
+    dialogOkBtn: document.getElementById("dialogOkBtn"),
+    dialogCancelBtn: document.getElementById("dialogCancelBtn")
+  };
+
+  const lassoCtx = els.lassoCanvas.getContext("2d");
+
+  let boards = [];
+  let currentBoardId = "";
+  let currentBg = "plain";
+
+  let board = { w: window.innerWidth, h: window.innerHeight };
+  let camera = { x: 0, y: 0, zoom: 1 };
+  let bubbles = [];
+  let links = [];
+  let nextBubbleId = 1;
+  let nextLinkId = 1;
+  let selectedId = null;
+  let selectedIds = new Set();
+  let selectionMode = false;
+  let selectionStack = [];
+  let lastTouchTap = { id: null, time: 0, x: 0, y: 0 };
+  let suppressDoubleClickUntil = 0;
+  let selectedLinkId = null;
+  let dropTargetId = null;
+  let pinMode = false;
+  let pumpMode = false;
+  let lassoMode = false;
+  let gesture = null;
+  let pointerMap = new Map();
+  let modeIdleTimer = null;
+  let lassoPoints = [];
+  let pendingGroupRenameTimer = null;
+  let history = [];
+  let historyIndex = -1;
+  let suppressHistory = false;
+  let lastFrameSave = 0;
+  let defaultTextColor = localStorage.getItem("bubblememo.private.defaultTextColor.v1") || "#172033";
+
+  const icon = {
+    edit: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L8 20H4v-4z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6M14 11v6"/></svg>'
+  };
+
+  const worldMapSvg = `
+    <svg class="map-svg" style="left:-2300px;top:-1150px;width:4600px;height:2300px" viewBox="-2300 -1150 4600 2300">
+      <path class="map-land" d="M-1910,-360 C-1700,-700 -1240,-710 -1030,-520 C-880,-385 -880,-160 -1010,-40 C-1165,105 -1120,310 -880,420 C-620,540 -520,760 -740,870 C-1030,1015 -1310,850 -1440,610 C-1555,405 -1830,395 -1950,170 C-2055,-30 -2030,-205 -1910,-360 Z"/>
+      <path class="map-land" d="M-690,-880 C-375,-1015 -5,-905 120,-640 C240,-385 -15,-210 -245,-260 C-520,-320 -805,-585 -690,-880 Z"/>
+      <path class="map-land" d="M-220,-95 C60,-170 355,15 470,285 C590,565 410,890 150,1010 C-60,1105 -230,965 -178,735 C-126,510 -355,335 -315,120 C-292,4 -255,-58 -220,-95 Z"/>
+      <path class="map-land" d="M310,-705 C690,-935 1330,-860 1680,-505 C2015,-165 1910,250 1515,350 C1240,420 1055,190 780,270 C480,360 150,100 180,-250 C196,-430 230,-600 310,-705 Z"/>
+      <path class="map-land" d="M935,405 C1220,310 1540,470 1668,745 C1745,912 1610,1025 1400,990 C1165,950 1000,795 850,690 C705,590 745,465 935,405 Z"/>
+      <path class="map-line" d="M-2200 0H2200M0 -1040V1040"/>
+      <text class="map-label" x="-1360" y="-120">North America</text>
+      <text class="map-label" x="-125" y="565">South America</text>
+      <text class="map-label" x="80" y="-455">Europe</text>
+      <text class="map-label" x="870" y="-145">Asia</text>
+      <text class="map-label" x="210" y="440">Africa</text>
+      <text class="map-label" x="1270" y="820">Australia</text>
+    </svg>`;
+
+  const japanMapSvg = `
+    <svg class="map-svg" style="left:-620px;top:-850px;width:1240px;height:1700px" viewBox="-620 -850 1240 1700">
+      <path class="map-land" d="M140,-760 C250,-815 390,-785 455,-680 C535,-555 490,-410 360,-365 C250,-328 112,-402 75,-525 C45,-620 60,-715 140,-760 Z"/>
+      <path class="map-land" d="M-25,-335 C105,-440 260,-410 305,-260 C350,-108 230,18 70,28 C-80,38 -190,-62 -170,-195 C-158,-260 -98,-294 -25,-335 Z"/>
+      <path class="map-land" d="M-130,-170 C42,-210 170,-108 188,58 C205,210 102,330 -28,420 C-152,505 -245,640 -370,620 C-500,598 -485,455 -365,382 C-235,302 -235,168 -340,62 C-432,-30 -330,-128 -130,-170 Z"/>
+      <path class="map-land" d="M-438,635 C-335,555 -205,570 -175,670 C-145,768 -232,835 -355,802 C-465,772 -520,705 -438,635 Z"/>
+      <path class="map-land" d="M-520,765 C-442,715 -350,730 -330,802 C-315,865 -390,898 -500,875 C-582,858 -595,810 -520,765 Z"/>
+      <path class="map-line" d="M-330 382 C-105 250 95 120 285 -238"/>
+      <text class="map-label" x="274" y="-560">北海道</text>
+      <text class="map-label" x="66" y="-150">東北</text>
+      <text class="map-label" x="54" y="160">本州</text>
+      <text class="map-label" x="-350" y="715">四国</text>
+      <text class="map-label" x="-486" y="838">九州</text>
+      <text class="map-label city-label" x="295" y="-620">札幌</text>
+      <text class="map-label city-label" x="78" y="-265">仙台</text>
+      <text class="map-label city-label" x="110" y="42">東京</text>
+      <text class="map-label city-label" x="22" y="115">横浜</text>
+      <text class="map-label city-label" x="-25" y="224">名古屋</text>
+      <text class="map-label city-label" x="-120" y="315">大阪</text>
+      <text class="map-label city-label" x="-225" y="430">広島</text>
+      <text class="map-label city-label" x="-363" y="690">松山</text>
+      <text class="map-label city-label" x="-505" y="810">福岡</text>
+      <text class="map-label city-label" x="-540" y="908">鹿児島</text>
+    </svg>`;
+
+  let dialogState = null;
+
+  // WKWebView（アプリ内プレビュー等）ではprompt/confirm/alertが動かないため自前ダイアログを使う
+  function openDialog({ title, message = "", withInput = true, value = "", okLabel = "OK" }) {
+    return new Promise(resolve => {
+      if (dialogState) dialogState.resolve(null);
+      dialogState = { resolve, withInput };
+      els.dialogTitle.textContent = title || "";
+      els.dialogMessage.textContent = message;
+      els.dialogMessage.hidden = !message;
+      els.dialogInput.hidden = !withInput;
+      els.dialogInput.value = value;
+      els.dialogOkBtn.textContent = okLabel;
+      els.dialogShade.hidden = false;
+      els.appDialog.hidden = false;
+      if (withInput) {
+        els.dialogInput.focus({ preventScroll: true });
+        els.dialogInput.select();
+      }
+    });
+  }
+
+  function closeDialog(result) {
+    if (!dialogState) return;
+    const { resolve } = dialogState;
+    dialogState = null;
+    els.dialogShade.hidden = true;
+    els.appDialog.hidden = true;
+    els.dialogInput.blur();
+    resolve(result);
+  }
+
+  function confirmDialog(title, message, okLabel = "OK") {
+    return openDialog({ title, message, withInput: false, okLabel }).then(Boolean);
+  }
+
+  function showToast(message) {
+    els.toast.textContent = message;
+    els.toast.classList.add("show");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => els.toast.classList.remove("show"), 1300);
+  }
+
+  function boardCenter() {
+    return { x: board.w / 2, y: board.h / 2 };
+  }
+
+  function worldToScreen(x, y) {
+    const c = boardCenter();
+    return {
+      x: (x - camera.x) * camera.zoom + c.x,
+      y: (y - camera.y) * camera.zoom + c.y
+    };
+  }
+
+  function screenToWorld(x, y) {
+    const c = boardCenter();
+    return {
+      x: (x - c.x) / camera.zoom + camera.x,
+      y: (y - c.y) / camera.zoom + camera.y
+    };
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function deepClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function radiusForText(text, scale = 1) {
+    const len = Array.from(text || "").length;
+    return clamp(42 + Math.sqrt(Math.max(1, len)) * 9 * scale, 48, 180);
+  }
+
+  function getBubble(id) {
+    return bubbles.find(b => b.id === id) || null;
+  }
+
+  function getLink(id) {
+    return links.find(l => l.id === id) || null;
+  }
+
+  function childrenOf(id) {
+    return bubbles.filter(b => b.parentId === id);
+  }
+
+  function isDescendant(childId, ancestorId) {
+    if (!childId || !ancestorId) return false;
+    let current = getBubble(childId);
+    while (current && current.parentId) {
+      if (current.parentId === ancestorId) return true;
+      current = getBubble(current.parentId);
+    }
+    return false;
+  }
+
+  function depthOf(bubble) {
+    let depth = 0;
+    let current = bubble;
+    while (current && current.parentId) {
+      depth += 1;
+      current = getBubble(current.parentId);
+    }
+    return depth;
+  }
+
+  function descendantsOf(id) {
+    const out = [];
+    const walk = parentId => {
+      for (const child of childrenOf(parentId)) {
+        out.push(child);
+        walk(child.id);
+      }
+    };
+    walk(id);
+    return out;
+  }
+
+  function clearSelection() {
+    selectedId = null;
+    selectedIds.clear();
+    selectionMode = false;
+    selectionStack = [];
+    selectedLinkId = null;
+  }
+
+  function exitSelectionMode() {
+    clearSelection();
+  }
+
+  function selectOnly(id) {
+    selectionMode = false;
+    selectionStack = [];
+    selectedIds.clear();
+    selectedId = id || null;
+    selectedLinkId = null;
+    if (id) selectedIds.add(id);
+  }
+
+  function addSelectionModeBubble(id) {
+    const bubble = getBubble(id);
+    if (!bubble) return;
+    selectionMode = true;
+    selectedLinkId = null;
+    if (!selectedIds.has(id)) {
+      selectedIds.add(id);
+      selectionStack.push(id);
+    }
+    selectedId = id;
+    showToast(selectedIds.size > 1 ? "複数選択" : "選択モード");
+    render();
+  }
+
+  function undoSelectionStep() {
+    while (selectionStack.length) {
+      const id = selectionStack.pop();
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+        selectedId = selectionStack.length ? selectionStack[selectionStack.length - 1] : ([...selectedIds].at(-1) || null);
+        if (!selectedIds.size) selectionMode = false;
+        render();
+        return;
+      }
+    }
+    exitSelectionMode();
+    render();
+  }
+
+  function toggleBubbleSelection(id) {
+    selectedLinkId = null;
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+      selectedId = selectedIds.size ? [...selectedIds][selectedIds.size - 1] : null;
+    } else {
+      selectedIds.add(id);
+      selectedId = id;
+    }
+  }
+
+  function selectedBubbles() {
+    const ids = selectedIds.size ? selectedIds : new Set(selectedId ? [selectedId] : []);
+    return [...ids].map(getBubble).filter(Boolean);
+  }
+
+  function selectedTopLevelBubbles() {
+    const ids = selectedIds.size ? selectedIds : new Set(selectedId ? [selectedId] : []);
+    return [...ids]
+      .map(getBubble)
+      .filter(Boolean)
+      .filter(bubble => ![...ids].some(id => id !== bubble.id && isDescendant(bubble.id, id)));
+  }
+
+  function movingBubbleIds() {
+    return gesture?.type === "bubble" ? new Set(gesture.movingIds || [gesture.id]) : new Set();
+  }
+
+  function isMovingBubble(id) {
+    return movingBubbleIds().has(id);
+  }
+
+  function moveTree(bubble, dx, dy) {
+    bubble.x += dx;
+    bubble.y += dy;
+    for (const child of childrenOf(bubble.id)) moveTree(child, dx, dy);
+  }
+
+  function pulseGroup(group, dx, dy, strength = .18, kind = "pull") {
+    if (!group || group.type !== "group") return;
+    const dist = Math.hypot(dx, dy) || 1;
+    const previous = group.warp;
+    const x = dx / dist;
+    const y = dy / dist;
+    const amount = clamp(strength, .04, .72);
+    if (previous && previous.kind === kind && Math.hypot(previous.x - x, previous.y - y) < .08) {
+      group.warp = {
+        x,
+        y,
+        amount: Math.max(previous.amount * .72, amount),
+        kind
+      };
+      return;
+    }
+    group.warp = {
+      x,
+      y,
+      amount,
+      kind
+    };
+  }
+
+  function clearDragWarps() {
+    if (!gesture?.parentRimState) return;
+    for (const id of Object.keys(gesture.parentRimState)) {
+      const group = getBubble(id);
+      if (group?.type === "group") delete group.warp;
+    }
+  }
+
+  function rimContainmentState(contact, bubble) {
+    if (!contact || !bubble) return "outside";
+    if (contact.dist + bubble.r <= contact.group.r - 1) return "inside";
+    if (contact.dist - bubble.r >= contact.group.r + 1) return "outside";
+    return "crossing";
+  }
+
+  function updateRimInteraction(group, bubble, moveDx, moveDy, strength = .72) {
+    const contact = rimContact(group, bubble, Math.max(14, bubble.r * .14));
+    if (!contact) return;
+    const currentState = rimContainmentState(contact, bubble);
+    const state = gesture.parentRimState[group.id] || { side: currentState, lastStableSide: currentState };
+    if (currentState === "inside" || currentState === "outside") {
+      gesture.parentRimState[group.id] = {
+        side: currentState,
+        lastStableSide: currentState,
+        signedFromRim: contact.signedFromRim
+      };
+      return;
+    }
+    if (contact.amount <= 0) return;
+
+    const radialMotion = (contact.dx * moveDx + contact.dy * moveDy) / contact.dist;
+    let kind = state.lastStableSide === "inside" ? "pull" : "dent";
+    if (Math.abs(radialMotion) > .08) kind = radialMotion > 0 ? "pull" : "dent";
+
+    gesture.parentRimState[group.id] = {
+      side: "crossing",
+      lastStableSide: state.lastStableSide || (kind === "pull" ? "inside" : "outside"),
+      signedFromRim: contact.signedFromRim
+    };
+    pulseGroup(group, contact.dx, contact.dy, strength * contact.amount, kind);
+  }
+
+  function rimContact(container, bubble, margin = 18) {
+    if (!container || !bubble || container.id === bubble.id) return null;
+    const dx = bubble.x - container.x;
+    const dy = bubble.y - container.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const signedFromRim = dist - container.r;
+    const overlap = bubble.r - Math.abs(signedFromRim);
+    const amount = clamp((overlap + margin) / (bubble.r + margin), 0, 1);
+    return {
+      group: container,
+      dx,
+      dy,
+      dist,
+      signedFromRim,
+      overlap,
+      amount
+    };
+  }
+
+  function rimTargetForBubble(bubble, { includeParent = false, margin = 18 } = {}) {
+    if (!bubble) return null;
+    const candidates = bubbles
+      .filter(group => {
+        if (group.type !== "group") return false;
+        if (group.id === bubble.id) return false;
+        if (!includeParent && group.id === bubble.parentId) return false;
+        if (isDescendant(group.id, bubble.id)) return false;
+        return true;
+      })
+      .map(group => rimContact(group, bubble, margin))
+      .filter(Boolean)
+      .filter(contact => contact.amount > 0 || contact.dist < contact.group.r)
+      .sort((a, b) => {
+        const aInside = a.dist < a.group.r ? 1 : 0;
+        const bInside = b.dist < b.group.r ? 1 : 0;
+        return bInside - aInside || b.amount - a.amount || a.group.r - b.group.r;
+      });
+    return candidates[0] || null;
+  }
+
+  function angleDistance(a, b) {
+    return Math.atan2(Math.sin(a - b), Math.cos(a - b));
+  }
+
+  function groupBlobPath(bubble, pad) {
+    const r = bubble.r;
+    const cx = r + pad;
+    const cy = r + pad;
+    const points = [];
+    const count = 112;
+    const warp = bubble.warp?.amount > .01 ? bubble.warp : null;
+    const warpAngle = warp ? Math.atan2(warp.y, warp.x) : 0;
+    const sigma = warp?.kind === "dent" ? .42 : .38;
+
+    for (let i = 0; i < count; i += 1) {
+      const theta = i / count * Math.PI * 2;
+      let radius = r;
+      if (warp) {
+        const d = angleDistance(theta, warpAngle);
+        const near = Math.exp(-(d * d) / (2 * sigma * sigma));
+        const shoulderA = Math.exp(-((d - sigma * 1.25) ** 2) / (2 * (sigma * .62) ** 2));
+        const shoulderB = Math.exp(-((d + sigma * 1.25) ** 2) / (2 * (sigma * .62) ** 2));
+        if (warp.kind === "dent") {
+          radius -= r * warp.amount * .68 * near;
+          radius += r * warp.amount * .2 * (shoulderA + shoulderB);
+        } else {
+          radius += r * warp.amount * .72 * near;
+          radius -= r * warp.amount * .14 * (shoulderA + shoulderB);
+        }
+      }
+      radius += Math.sin(theta * 3 + bubble.phase) * r * .006;
+      points.push({
+        x: cx + Math.cos(theta) * radius,
+        y: cy + Math.sin(theta) * radius
+      });
+    }
+
+    const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    let d = "";
+    const first = midpoint(points[points.length - 1], points[0]);
+    d += `M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`;
+    for (let i = 0; i < points.length; i += 1) {
+      const current = points[i];
+      const next = midpoint(current, points[(i + 1) % points.length]);
+      d += ` Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+    }
+    return d + " Z";
+  }
+
+  function createGroupBlobSvg(bubble) {
+    const pad = bubble.r * .34;
+    const size = bubble.r * 2 + pad * 2;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("group-blob");
+    svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+    svg.setAttribute("aria-hidden", "true");
+
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const grad = document.createElementNS("http://www.w3.org/2000/svg", "radialGradient");
+    const gradId = `groupBlobFill-${bubble.id}`;
+    grad.id = gradId;
+    grad.setAttribute("cx", "34%");
+    grad.setAttribute("cy", "25%");
+    grad.setAttribute("r", "78%");
+    const stops = [
+      ["0%", "rgba(255, 255, 255, .58)"],
+      ["42%", "rgba(255, 255, 255, .22)"],
+      ["100%", "rgba(99, 168, 232, .16)"]
+    ];
+    for (const [offset, color] of stops) {
+      const stop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop.setAttribute("offset", offset);
+      stop.setAttribute("stop-color", color);
+      grad.appendChild(stop);
+    }
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("group-blob-path");
+    path.setAttribute("fill", `url(#${gradId})`);
+    path.setAttribute("d", groupBlobPath(bubble, pad));
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function createBubble(text, x, y, type = "note", extra = {}) {
+    const bubble = {
+      id: extra.id || `b${nextBubbleId++}`,
+      type,
+      text: text || "",
+      name: extra.name || "",
+      x,
+      y,
+      r: extra.r || (type === "group" ? 150 : radiusForText(text, extra.scale || 1)),
+      manualR: extra.manualR || 0,
+      scale: extra.scale || 1,
+      textColor: extra.textColor || defaultTextColor,
+      parentId: extra.parentId || null,
+      vx: extra.vx || 0,
+      vy: extra.vy || 0,
+      phase: extra.phase ?? Math.random() * Math.PI * 2,
+      linkId: extra.linkId || null,
+      lockedToLink: Boolean(extra.lockedToLink)
+    };
+    bubbles.push(bubble);
+    return bubble;
+  }
+
+  function normalizeIds() {
+    let maxBubble = 0;
+    let maxLink = 0;
+    for (const b of bubbles) {
+      const n = Number(String(b.id).replace(/^b/, ""));
+      if (Number.isFinite(n)) maxBubble = Math.max(maxBubble, n);
+    }
+    for (const l of links) {
+      const n = Number(String(l.id).replace(/^l/, ""));
+      if (Number.isFinite(n)) maxLink = Math.max(maxLink, n);
+    }
+    nextBubbleId = Math.max(nextBubbleId, maxBubble + 1);
+    nextLinkId = Math.max(nextLinkId, maxLink + 1);
+  }
+
+  function serializeState() {
+    return {
+      camera: deepClone(camera),
+      bubbles: bubbles.map(b => ({
+        id: b.id,
+        type: b.type,
+        text: b.text,
+        name: b.name,
+        x: b.x,
+        y: b.y,
+        r: b.r,
+        manualR: b.manualR || 0,
+        scale: b.scale || 1,
+        textColor: b.textColor || defaultTextColor,
+        parentId: b.parentId || null,
+        vx: b.vx || 0,
+        vy: b.vy || 0,
+        phase: b.phase || 0,
+        linkId: b.linkId || null,
+        lockedToLink: Boolean(b.lockedToLink)
+      })),
+      links: links.map(l => ({
+        id: l.id,
+        a: l.a,
+        b: l.b,
+        labelBubbleId: l.labelBubbleId || null
+      })),
+      nextBubbleId,
+      nextLinkId
+    };
+  }
+
+  function restoreState(data) {
+    camera = data?.camera ? deepClone(data.camera) : { x: 0, y: 0, zoom: 1 };
+    camera.zoom = clamp(camera.zoom || 1, MIN_ZOOM, MAX_ZOOM);
+    bubbles = (data?.bubbles || []).map(raw => ({
+      id: raw.id,
+      type: raw.type || "note",
+      text: raw.text || "",
+      name: raw.name || "",
+      x: Number(raw.x) || 0,
+      y: Number(raw.y) || 0,
+      r: clamp(Number(raw.r) || radiusForText(raw.text || ""), 32, 900),
+      manualR: Number(raw.manualR) || 0,
+      scale: clamp(Number(raw.scale) || 1, .45, 5),
+      textColor: raw.textColor || defaultTextColor,
+      parentId: raw.parentId || null,
+      vx: Number(raw.vx) || 0,
+      vy: Number(raw.vy) || 0,
+      phase: Number(raw.phase) || Math.random() * Math.PI * 2,
+      linkId: raw.linkId || null,
+      lockedToLink: Boolean(raw.lockedToLink)
+    }));
+    links = (data?.links || []).filter(l => getBubble(l.a) && getBubble(l.b)).map(raw => ({
+      id: raw.id,
+      a: raw.a,
+      b: raw.b,
+      labelBubbleId: raw.labelBubbleId || null
+    }));
+    nextBubbleId = data?.nextBubbleId || 1;
+    nextLinkId = data?.nextLinkId || 1;
+    normalizeIds();
+    normalizeGroupShellSizes();
+    selectedId = null;
+    selectedIds.clear();
+    selectedLinkId = null;
+    dropTargetId = null;
+  }
+
+  function dataKey(id = currentBoardId) {
+    return STORAGE.dataPrefix + id;
+  }
+
+  function saveBoardsIndex() {
+    localStorage.setItem(STORAGE.boards, JSON.stringify(boards));
+    if (currentBoardId) localStorage.setItem(STORAGE.active, currentBoardId);
+  }
+
+  function saveCurrentData() {
+    if (!currentBoardId) return;
+    const boardRecord = boards.find(b => b.id === currentBoardId);
+    if (boardRecord) {
+      boardRecord.bg = currentBg;
+      boardRecord.updatedAt = Date.now();
+      saveBoardsIndex();
+    }
+    localStorage.setItem(dataKey(), JSON.stringify(serializeState()));
+  }
+
+  function recordHistory() {
+    if (suppressHistory) return;
+    history = history.slice(0, historyIndex + 1);
+    history.push(serializeState());
+    if (history.length > MAX_HISTORY) history.shift();
+    historyIndex = history.length - 1;
+    saveCurrentData();
+    updateToolState();
+  }
+
+  function resetHistory() {
+    history = [serializeState()];
+    historyIndex = 0;
+    updateToolState();
+  }
+
+  function undo() {
+    if (historyIndex <= 0) return;
+    historyIndex -= 1;
+    suppressHistory = true;
+    restoreState(history[historyIndex]);
+    suppressHistory = false;
+    saveCurrentData();
+    render();
+    updateToolState();
+  }
+
+  function redo() {
+    if (historyIndex >= history.length - 1) return;
+    historyIndex += 1;
+    suppressHistory = true;
+    restoreState(history[historyIndex]);
+    suppressHistory = false;
+    saveCurrentData();
+    render();
+    updateToolState();
+  }
+
+  function loadBoardsIndex() {
+    try {
+      boards = JSON.parse(localStorage.getItem(STORAGE.boards) || "[]");
+    } catch {
+      boards = [];
+    }
+    if (!Array.isArray(boards) || boards.length === 0) {
+      boards = [{
+        id: "board_" + Date.now().toString(36),
+        name: "メインボード",
+        bg: "plain",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }];
+      saveBoardsIndex();
+    }
+    currentBoardId = localStorage.getItem(STORAGE.active) || boards[0].id;
+    if (!boards.some(b => b.id === currentBoardId)) currentBoardId = boards[0].id;
+  }
+
+  function loadBoard(id) {
+    currentBoardId = id;
+    localStorage.setItem(STORAGE.active, id);
+    const record = boards.find(b => b.id === id);
+    currentBg = record?.bg || "plain";
+    const raw = localStorage.getItem(dataKey(id));
+    if (raw) {
+      try {
+        restoreState(JSON.parse(raw));
+      } catch {
+        restoreState(null);
+      }
+    } else {
+      restoreState(null);
+    }
+    applyBackground(currentBg);
+    resetHistory();
+    renderBoardList();
+    render();
+  }
+
+  function base64UrlEncode(bytes) {
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function base64UrlDecode(text) {
+    const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  async function compressToPayload(text) {
+    const bytes = new TextEncoder().encode(text);
+    if (typeof CompressionStream === "function") {
+      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+      const packed = new Uint8Array(await new Response(stream).arrayBuffer());
+      return "z" + base64UrlEncode(packed);
+    }
+    return "r" + base64UrlEncode(bytes);
+  }
+
+  async function decompressPayload(payload) {
+    const kind = payload.slice(0, 1);
+    const bytes = base64UrlDecode(payload.slice(1));
+    if (kind === "z") {
+      if (typeof DecompressionStream !== "function") throw new Error("この端末では共有リンクを開けません");
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return await new Response(stream).text();
+    }
+    if (kind === "r") return new TextDecoder().decode(bytes);
+    throw new Error("共有リンクの形式が不正です");
+  }
+
+  function payloadSignature(payload) {
+    let hash = 5381;
+    for (let i = 0; i < payload.length; i += 1) hash = ((hash * 33) ^ payload.charCodeAt(i)) >>> 0;
+    return hash.toString(36) + "-" + payload.length.toString(36);
+  }
+
+  function readImportedShares() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE.importedShares) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  async function importFromShareHash() {
+    const match = location.hash.match(/(?:^#|&)board=([^&]+)/);
+    if (!match) return false;
+    const payload = decodeURIComponent(match[1]);
+    window.history.replaceState(null, "", location.pathname + location.search);
+    try {
+      const pack = JSON.parse(await decompressPayload(payload));
+      const signature = payloadSignature(payload);
+      const imported = readImportedShares();
+      const existingId = imported[signature];
+      if (existingId && boards.some(b => b.id === existingId)) {
+        loadBoard(existingId);
+        showToast("共有ボードを開きました");
+        return true;
+      }
+      const id = importBoardPack(pack, { silent: true });
+      imported[signature] = id;
+      localStorage.setItem(STORAGE.importedShares, JSON.stringify(imported));
+      showToast("共有ボードを取り込みました");
+      return true;
+    } catch (error) {
+      showToast(error?.message || "共有リンクを開けませんでした");
+      return false;
+    }
+  }
+
+  function createBoard() {
+    if (!canCreateBoard()) {
+      showToast(`ボードは最大${MAX_FREE_BOARDS}個までです`);
+      return;
+    }
+    openDialog({ title: "新規ボード", value: "新しいボード", okLabel: "作成" }).then(name => {
+      if (!canCreateBoard()) return;
+      if (name === null || !name.trim()) return;
+      const id = "board_" + Date.now().toString(36);
+      boards.push({ id, name: name.trim(), bg: "plain", createdAt: Date.now(), updatedAt: Date.now() });
+      saveCurrentData();
+      saveBoardsIndex();
+      loadBoard(id);
+      toggleSidebar(false);
+    });
+  }
+
+  function renameBoard(id) {
+    const item = boards.find(b => b.id === id);
+    if (!item) return;
+    openDialog({ title: "ボード名を変更", value: item.name, okLabel: "変更" }).then(name => {
+      if (name === null || !name.trim()) return;
+      item.name = name.trim();
+      item.updatedAt = Date.now();
+      saveBoardsIndex();
+      renderBoardList();
+    });
+  }
+
+  function deleteBoard(id) {
+    if (boards.length <= 1) {
+      showToast("最後のボードは削除できません");
+      return;
+    }
+    const item = boards.find(b => b.id === id);
+    if (!item) return;
+    confirmDialog("ボード削除", `「${item.name}」を削除しますか？`, "削除").then(ok => {
+      if (!ok) return;
+      boards = boards.filter(b => b.id !== id);
+      localStorage.removeItem(dataKey(id));
+      if (currentBoardId === id) {
+        saveBoardsIndex();
+        loadBoard(boards[0].id);
+      } else {
+        saveBoardsIndex();
+        renderBoardList();
+      }
+    });
+  }
+
+
+  function importBoardPack(pack, { silent = false } = {}) {
+    if (!pack || pack.format !== "bubblememo-board" || !pack.data) {
+      throw new Error("BubbleMemoのボードファイルではありません");
+    }
+    if (!canCreateBoard()) {
+      throw new Error(`ボードは最大${MAX_FREE_BOARDS}個までのため取り込めません`);
+    }
+    const id = "board_" + Date.now().toString(36);
+    const baseName = pack.board?.name || "読み込んだボード";
+    const name = boards.some(b => b.name === baseName) ? `${baseName} コピー` : baseName;
+    const bg = pack.board?.bg || pack.background || "plain";
+    boards.push({ id, name, bg, createdAt: Date.now(), updatedAt: Date.now() });
+    saveBoardsIndex();
+    localStorage.setItem(dataKey(id), JSON.stringify(pack.data));
+    loadBoard(id);
+    if (!silent) {
+      toggleSidebar(false);
+      showToast("ボードを読み込みました");
+    }
+    return id;
+  }
+
+  function renderBoardList() {
+    els.boardList.innerHTML = "";
+    for (const boardRecord of boards) {
+      const item = document.createElement("div");
+      item.className = "board-item" + (boardRecord.id === currentBoardId ? " active" : "");
+      const name = document.createElement("div");
+      name.className = "board-name";
+      name.textContent = boardRecord.name;
+      name.addEventListener("click", e => {
+        e.preventDefault();
+        saveCurrentData();
+        loadBoard(boardRecord.id);
+        toggleSidebar(false);
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "board-actions";
+      const edit = document.createElement("button");
+      edit.className = "mini-btn";
+      edit.title = "名前変更";
+      edit.innerHTML = icon.edit;
+      edit.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        renameBoard(boardRecord.id);
+      });
+      const trash = document.createElement("button");
+      trash.className = "mini-btn danger";
+      trash.title = "削除";
+      trash.innerHTML = icon.trash;
+      trash.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteBoard(boardRecord.id);
+      });
+      actions.append(edit, trash);
+      item.append(name, actions);
+      els.boardList.appendChild(item);
+    }
+  }
+
+  function applyBackground(mode) {
+    currentBg = mode || "plain";
+    els.bgSelect.value = currentBg;
+    els.mapLayer.hidden = currentBg === "plain";
+    els.mapLayer.innerHTML = currentBg === "world" ? worldMapSvg : currentBg === "japan" ? japanMapSvg : "";
+    updateMapTransform();
+  }
+
+  function updateMapTransform() {
+    const originX = board.w / 2 - camera.x * camera.zoom;
+    const originY = board.h / 2 - camera.y * camera.zoom;
+    els.mapLayer.style.transform = `translate(${originX}px, ${originY}px) scale(${camera.zoom})`;
+    els.mapLayer.classList.toggle("show-cities", currentBg === "japan" && camera.zoom > 2.2);
+    let gridSize = 56 * camera.zoom;
+    while (gridSize < 30) gridSize *= 2;
+    while (gridSize >= 120) gridSize /= 2;
+    els.stage.style.setProperty("--grid-size", `${gridSize}px`);
+    els.stage.style.setProperty("--grid-x", `${originX % gridSize}px`);
+    els.stage.style.setProperty("--grid-y", `${originY % gridSize}px`);
+  }
+
+  function toggleSidebar(open) {
+    renderBoardList();
+    els.sidebar.classList.toggle("open", open);
+    els.sidebarShade.classList.toggle("open", open);
+  }
+
+  function resetModeIdleTimer() {
+    if (modeIdleTimer) clearTimeout(modeIdleTimer);
+    if (!lassoMode && !pumpMode && !pinMode) {
+      modeIdleTimer = null;
+      return;
+    }
+    modeIdleTimer = setTimeout(() => {
+      lassoMode = false;
+      pumpMode = false;
+      pinMode = false;
+      modeIdleTimer = null;
+      showToast("モード解除");
+      render();
+    }, 4000);
+  }
+
+  function updateToolState() {
+    els.undoBtn.disabled = historyIndex <= 0;
+    els.redoBtn.disabled = historyIndex >= history.length - 1;
+    els.pumpBtn.classList.toggle("active", pumpMode);
+    els.pinBtn.classList.toggle("active", pinMode);
+    els.lassoBtn.classList.toggle("active", lassoMode);
+    const selected = selectedBubbles();
+    els.alignBtn.disabled = selected.length < 2;
+    els.selectionClearBtn.classList.toggle("show", selectionMode && selected.length > 0);
+    els.selectionSizePanel.classList.toggle("show", selectionMode && selected.length > 0);
+    updateColorSwatches();
+  }
+
+  function getActiveTextColor() {
+    const bubble = selectedId ? getBubble(selectedId) : null;
+    return bubble?.textColor || defaultTextColor;
+  }
+
+  function updateColorSwatches() {
+    if (!els.colorPalette) return;
+    const active = getActiveTextColor().toLowerCase();
+    for (const swatch of els.colorPalette.querySelectorAll(".color-swatch")) {
+      swatch.classList.toggle("active", (swatch.dataset.color || "").toLowerCase() === active);
+    }
+  }
+
+  function setTextColor(color) {
+    defaultTextColor = color;
+    localStorage.setItem("bubblememo.private.defaultTextColor.v1", color);
+    const bubble = selectedId ? getBubble(selectedId) : null;
+    if (bubble) {
+      bubble.textColor = color;
+      recordHistory();
+    } else {
+      saveCurrentData();
+    }
+    render();
+  }
+
+  async function buildShareUrl() {
+    saveCurrentData();
+    const record = boards.find(b => b.id === currentBoardId);
+    const pack = {
+      app: "BubbleMemo",
+      format: "bubblememo-board",
+      version: 1,
+      sharedAt: new Date().toISOString(),
+      board: {
+        name: record?.name || "メモボード",
+        bg: currentBg
+      },
+      data: serializeState()
+    };
+    const payload = await compressToPayload(JSON.stringify(pack));
+    return `${location.href.split("#")[0]}#board=${payload}`;
+  }
+
+  async function copyTextRobust(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      /* 下のフォールバックへ */
+    }
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand("copy");
+      textarea.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  function shareBoardLink() {
+    const urlPromise = buildShareUrl();
+    const done = () => showToast("共有リンクをコピーしました");
+    const fallback = url => {
+      // コピーできない環境向けに、手動コピー用のダイアログでURLを見せる
+      openDialog({ title: "共有リンク", message: "自動コピーできませんでした。下のリンクを長押しでコピーしてください。", value: url, okLabel: "閉じる" });
+    };
+    // iOS Safariはユーザー操作直後しかクリップボードに書けないため、
+    // Promiseを渡せるClipboardItemを同期的に発行して圧縮完了を待たせる
+    if (navigator.clipboard?.write && typeof ClipboardItem === "function") {
+      const item = new ClipboardItem({
+        "text/plain": urlPromise.then(url => new Blob([url], { type: "text/plain" }))
+      });
+      navigator.clipboard.write([item]).then(done).catch(() => {
+        urlPromise.then(url => copyTextRobust(url).then(ok => ok ? done() : fallback(url)));
+      });
+      return;
+    }
+    urlPromise.then(url => copyTextRobust(url).then(ok => ok ? done() : fallback(url)));
+  }
+
+  function attachMemoInputEvents(input) {
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.isComposing) {
+        event.preventDefault();
+        addMemo();
+      }
+    });
+  }
+
+  function resetMemoInput() {
+    // iOSではIME変換セッションが入力欄のDOM要素に紐づいたまま残り、
+    // 変換中にvalueを消すと以後のキー入力が届かなくなる。blurで変換を
+    // 強制確定して値を取り出したあと、要素ごと新品に差し替えて、同じ
+    // ジェスチャ内でフォーカスを戻す。毎回まっさらな編集セッションになる。
+    const old = els.input;
+    old.blur();
+    const text = old.value;
+    const fresh = old.cloneNode(false);
+    fresh.value = "";
+    old.replaceWith(fresh);
+    els.input = fresh;
+    attachMemoInputEvents(fresh);
+    fresh.focus({ preventScroll: true });
+    return text;
+  }
+
+  function addMemo() {
+    const text = resetMemoInput().trim();
+    if (!text) return;
+    if (text === SHARE_PHRASE) {
+      shareBoardLink();
+      return;
+    }
+
+    if (selectedLinkId) {
+      const link = getLink(selectedLinkId);
+      const a = link && getBubble(link.a);
+      const b = link && getBubble(link.b);
+      if (link && a && b) {
+        const relation = createBubble(text, (a.x + b.x) / 2, (a.y + b.y) / 2, "relation", {
+          r: radiusForText(text, 1),
+          linkId: link.id,
+          lockedToLink: true
+        });
+        link.labelBubbleId = relation.id;
+        selectOnly(relation.id);
+        recordHistory();
+        render();
+        return;
+      }
+    }
+
+    const center = screenToWorld(board.w / 2, board.h / 2);
+    const bubble = createBubble(text, center.x, center.y, "note");
+    selectOnly(bubble.id);
+    pushAwayFrom(bubble, 22);
+    resolveOverlaps(24);
+    recordHistory();
+    render();
+  }
+
+  function createLink(aId, bId) {
+    if (aId === bId) return;
+    if (links.some(l => (l.a === aId && l.b === bId) || (l.a === bId && l.b === aId))) {
+      showToast("すでにつながっています");
+      return;
+    }
+    links.push({ id: `l${nextLinkId++}`, a: aId, b: bId, labelBubbleId: null });
+    selectedIds.clear();
+    selectedId = null;
+    selectedLinkId = links[links.length - 1].id;
+    recordHistory();
+    render();
+  }
+
+  function removeBubble(id, animate = true) {
+    const bubble = getBubble(id);
+    if (!bubble) return;
+    if (bubble.type === "group") {
+      removeGroupShell(bubble, animate);
+      return;
+    }
+    const el = document.getElementById(id);
+    const finish = () => {
+      const parentId = bubble.parentId || null;
+      const removedLinks = links.filter(l => l.a === id || l.b === id || l.labelBubbleId === id);
+      const labelIds = new Set(removedLinks.map(l => l.labelBubbleId).filter(Boolean));
+      bubbles = bubbles.filter(b => b.id !== id && !labelIds.has(b.id));
+      links = links.filter(l => l.a !== id && l.b !== id && l.labelBubbleId !== id);
+      for (const link of links) {
+        if (link.labelBubbleId === id) link.labelBubbleId = null;
+      }
+      selectedIds.delete(id);
+      selectedId = null;
+      selectedLinkId = null;
+      if (parentId) resizeGroupToFit(getBubble(parentId));
+      resolveOverlaps(8);
+      recordHistory();
+      render();
+    };
+    if (animate && el) {
+      bubble.popping = true;
+      bubble.vx = 0;
+      bubble.vy = 0;
+      bubble.frozenTransform = el.style.transform;
+      el.classList.add("pop");
+      setTimeout(finish, 150);
+    } else {
+      finish();
+    }
+  }
+
+  function removeGroupShell(group, animate = true) {
+    const el = document.getElementById(group.id);
+    const finish = () => {
+      const parentId = group.parentId || null;
+      for (const child of childrenOf(group.id)) child.parentId = parentId;
+      bubbles = bubbles.filter(b => b.id !== group.id);
+      links = links.filter(l => l.a !== group.id && l.b !== group.id);
+      selectedIds.delete(group.id);
+      selectedId = null;
+      selectedLinkId = null;
+      if (parentId) resizeGroupToFit(getBubble(parentId));
+      resolveOverlaps(12);
+      recordHistory();
+      render();
+    };
+    if (animate && el) {
+      el.classList.add("shell-break");
+      setTimeout(finish, 320);
+    } else {
+      finish();
+    }
+  }
+
+  function setParent(bubble, parentId) {
+    bubble.parentId = parentId || null;
+  }
+
+  function dropGroupForBubble(bubble, pointerWorld = null) {
+    const contact = rimTargetForBubble(bubble, { margin: Math.max(12, bubble.r * .12) });
+    if (!contact) return null;
+    const pointerInside = pointerWorld
+      ? Math.hypot(pointerWorld.x - contact.group.x, pointerWorld.y - contact.group.y) < contact.group.r - 8
+      : false;
+    const centerInside = contact.dist < contact.group.r - Math.min(bubble.r * .12, 18);
+    return pointerInside || centerInside ? contact.group : null;
+  }
+
+  function attachToGroup(bubble, group) {
+    if (!bubble || !group || bubble.id === group.id || bubble.parentId === group.id || isDescendant(group.id, bubble.id)) return false;
+    const oldParent = bubble.parentId ? getBubble(bubble.parentId) : null;
+    setParent(bubble, group.id);
+    growGroupToFit(group, { includeMoving: true });
+    keepInsideParent(bubble);
+    growGroupToFit(group, { includeMoving: true });
+    if (oldParent) resizeGroupToFit(oldParent);
+    bubble.vx *= .25;
+    bubble.vy *= .25;
+    showToast("中に入れました");
+    return true;
+  }
+
+  function detachFromParent(bubble) {
+    if (!bubble?.parentId) return false;
+    const parent = getBubble(bubble.parentId);
+    const nextParentId = parent?.parentId || null;
+    setParent(bubble, nextParentId);
+    if (parent) {
+      bubble.justDetachedFrom = parent.id;
+      setTimeout(() => {
+        if (bubble.justDetachedFrom === parent.id) delete bubble.justDetachedFrom;
+      }, 700);
+    }
+    if (parent) resizeGroupToFit(parent);
+    if (nextParentId) resizeGroupToFit(getBubble(nextParentId));
+    showToast("外に出しました");
+    return true;
+  }
+
+  function maybeDetachFromParent(bubble, pointerWorld = null) {
+    if (!bubble?.parentId) return false;
+    const parent = getBubble(bubble.parentId);
+    if (!parent) {
+      bubble.parentId = null;
+      return true;
+    }
+    const dist = Math.hypot(bubble.x - parent.x, bubble.y - parent.y);
+    const pointerDist = pointerWorld ? Math.hypot(pointerWorld.x - parent.x, pointerWorld.y - parent.y) : 0;
+    const exitDist = bubble.type === "group" ? parent.r + bubble.r * .18 : parent.r - Math.min(bubble.r * .42, 34);
+    const outlineOutside = dist + bubble.r > parent.r + 8;
+    if (outlineOutside || pointerDist > parent.r - 10 || dist > exitDist) return detachFromParent(bubble);
+    return false;
+  }
+
+  function resizeGroupToFit(group, options = {}) {
+    if (!group || group.type !== "group") return;
+    if (group.manualR) {
+      group.r = clamp(group.manualR, 130, 900);
+      if (!groupLayoutIsValid(group, 6, 8)) applyManualGroupRadius(group, group.r);
+      return;
+    }
+    const required = requiredGroupRadius(group, options);
+    group.r = clamp(required, 130, 900);
+  }
+
+  function requiredGroupRadius(group, { includeMoving = false } = {}) {
+    if (!group || group.type !== "group") return 130;
+    const children = childrenOf(group.id).filter(child => {
+      if (child.popping) return false;
+      if (!includeMoving && isMovingBubble(child.id)) return false;
+      return true;
+    });
+    if (!children.length) return 150;
+    return children.reduce((required, child) => {
+      const dist = Math.hypot(child.x - group.x, child.y - group.y);
+      return Math.max(required, dist + child.r + GROUP_FIT_PADDING);
+    }, 130);
+  }
+
+  function layoutChildrenOf(group, { includeMoving = false } = {}) {
+    if (!group || group.type !== "group") return [];
+    return childrenOf(group.id).filter(child => {
+      if (child.popping) return false;
+      if (!includeMoving && isMovingBubble(child.id)) return false;
+      return true;
+    });
+  }
+
+  function snapshotBubblePositions(items) {
+    return items.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx || 0, vy: b.vy || 0 }));
+  }
+
+  function restoreBubblePositions(snapshot) {
+    for (const item of snapshot) {
+      const bubble = getBubble(item.id);
+      if (!bubble) continue;
+      bubble.x = item.x;
+      bubble.y = item.y;
+      bubble.vx = item.vx;
+      bubble.vy = item.vy;
+    }
+  }
+
+  function nudgeInsideGroup(child, group, padding = 8) {
+    const maxDist = group.r - child.r - padding;
+    if (maxDist < 4) return false;
+    const dx = child.x - group.x;
+    const dy = child.y - group.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist <= maxDist) return true;
+    moveTree(child, group.x + dx / dist * maxDist - child.x, group.y + dy / dist * maxDist - child.y);
+    child.vx = 0;
+    child.vy = 0;
+    return true;
+  }
+
+  function groupLayoutIsValid(group, pairGap = 6, padding = 8, options = {}) {
+    const items = layoutChildrenOf(group, options);
+    for (const item of items) {
+      if (Math.hypot(item.x - group.x, item.y - group.y) + item.r > group.r - padding + .75) return false;
+    }
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i];
+        const b = items[j];
+        if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + pairGap - .75) return false;
+      }
+    }
+    return true;
+  }
+
+  function compactGroupContents(group, radius, iterations = 90, options = {}) {
+    if (!group || group.type !== "group") return false;
+    const items = layoutChildrenOf(group, options);
+    group.r = clamp(radius, 130, 900);
+    if (!items.length) return true;
+    for (let step = 0; step < iterations; step += 1) {
+      for (let i = 0; i < items.length; i += 1) {
+        for (let j = i + 1; j < items.length; j += 1) {
+          separateBubblePair(items[i], items[j], 6);
+        }
+      }
+      for (const item of items) nudgeInsideGroup(item, group, 8);
+      if (groupLayoutIsValid(group, 6, 8, options)) return true;
+    }
+    return groupLayoutIsValid(group, 6, 8, options);
+  }
+
+  function applyManualGroupRadius(group, desiredR) {
+    if (!group || group.type !== "group") return;
+    const target = clamp(desiredR, 130, 900);
+    const items = [group, ...descendantsOf(group.id)];
+    const snapshot = snapshotBubblePositions(items);
+    const startR = group.r;
+    const previousManual = group.manualR || 0;
+
+    if (compactGroupContents(group, target)) {
+      group.manualR = group.r;
+      return;
+    }
+
+    const highR = clamp(Math.max(startR, requiredGroupRadius(group, { includeMoving: false }), target), 130, 900);
+    let low = target;
+    let high = highR;
+    let bestSnapshot = null;
+    let bestR = highR;
+
+    restoreBubblePositions(snapshot);
+    group.r = highR;
+    if (compactGroupContents(group, highR)) {
+      bestSnapshot = snapshotBubblePositions(items);
+      bestR = group.r;
+    }
+
+    for (let n = 0; n < 14; n += 1) {
+      const mid = (low + high) / 2;
+      restoreBubblePositions(snapshot);
+      group.r = startR;
+      group.manualR = previousManual;
+      if (compactGroupContents(group, mid)) {
+        high = mid;
+        bestR = group.r;
+        bestSnapshot = snapshotBubblePositions(items);
+      } else {
+        low = mid;
+      }
+    }
+
+    if (bestSnapshot) restoreBubblePositions(bestSnapshot);
+    else restoreBubblePositions(snapshot);
+    group.r = clamp(bestR, 130, 900);
+    group.manualR = group.r;
+  }
+
+  function growGroupToFit(group, options = {}) {
+    if (!group || group.type !== "group") return;
+    const required = requiredGroupRadius(group, options);
+    if (group.manualR) {
+      applyManualGroupRadius(group, group.manualR);
+      return;
+    }
+    group.r = clamp(required, 130, 900);
+  }
+
+  function normalizeGroupShellSizes() {
+    for (const group of bubbles.filter(b => b.type === "group").sort((a, b) => depthOf(b) - depthOf(a))) {
+      if (group.manualR) resizeGroupToFit(group);
+      else group.r = clamp(requiredGroupRadius(group, { includeMoving: false }), 130, 900);
+    }
+  }
+
+  function resizeAncestors(bubble) {
+    let parent = bubble?.parentId ? getBubble(bubble.parentId) : null;
+    while (parent) {
+      resizeGroupToFit(parent);
+      parent = parent.parentId ? getBubble(parent.parentId) : null;
+    }
+  }
+
+  function keepInsideParent(bubble) {
+    if (isMovingBubble(bubble.id)) return;
+    if (!bubble.parentId) return;
+    const parent = getBubble(bubble.parentId);
+    if (!parent) {
+      bubble.parentId = null;
+      return;
+    }
+    const maxDist = parent.r - bubble.r - GROUP_FIT_PADDING;
+    if (maxDist < 18) {
+      resizeGroupToFit(parent);
+      return;
+    }
+    const dx = bubble.x - parent.x;
+    const dy = bubble.y - parent.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist > maxDist) {
+      const nx = parent.x + dx / dist * maxDist;
+      const ny = parent.y + dy / dist * maxDist;
+      moveTree(bubble, nx - bubble.x, ny - bubble.y);
+    }
+  }
+
+  function stablePairUnit(a, b) {
+    const raw = `${a.id}:${b.id}`;
+    let hash = 0;
+    for (let i = 0; i < raw.length; i += 1) hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+    const angle = (hash % 6283) / 1000;
+    return { x: Math.cos(angle), y: Math.sin(angle) };
+  }
+
+  function separateBubblePair(a, b, gap = 14) {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let dist = Math.hypot(dx, dy);
+    if (dist < .01) {
+      const unit = stablePairUnit(a, b);
+      dx = unit.x;
+      dy = unit.y;
+      dist = 1;
+    }
+    const min = a.r + b.r + gap;
+    if (dist >= min) return false;
+    const overlap = (min - dist) / 2;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    moveTree(a, -ux * overlap, -uy * overlap);
+    moveTree(b, ux * overlap, uy * overlap);
+    a.vx = 0;
+    a.vy = 0;
+    b.vx = 0;
+    b.vy = 0;
+    return true;
+  }
+
+  function pushAwayFrom(source, iterations = 8) {
+    for (let n = 0; n < iterations; n += 1) {
+      for (const other of bubbles) {
+        if (other.id === source.id || other.parentId !== source.parentId) continue;
+        separateBubblePair(source, other, 14);
+      }
+    }
+    resizeAncestors(source);
+  }
+
+  function resolveOverlaps(iterations = 2) {
+    for (let step = 0; step < iterations; step += 1) {
+      for (let i = 0; i < bubbles.length; i += 1) {
+        for (let j = i + 1; j < bubbles.length; j += 1) {
+          const a = bubbles[i];
+          const b = bubbles[j];
+          if (isMovingBubble(a.id) || isMovingBubble(b.id)) continue;
+          if (a.parentId !== b.parentId) continue;
+          if (a.justDetachedFrom === b.id || b.justDetachedFrom === a.id) continue;
+          separateBubblePair(a, b, 14);
+        }
+      }
+      for (const group of bubbles.filter(b => b.type === "group").sort((a, b) => depthOf(b) - depthOf(a))) resizeGroupToFit(group);
+      for (const b of bubbles) {
+        if (!isMovingBubble(b.id)) keepInsideParent(b);
+      }
+    }
+    for (const group of bubbles.filter(b => b.type === "group").sort((a, b) => depthOf(b) - depthOf(a))) resizeGroupToFit(group);
+  }
+
+  function settleParentContents(parentId, iterations = 18) {
+    if (!parentId) {
+      resolveOverlaps(iterations);
+      return;
+    }
+    for (let step = 0; step < iterations; step += 1) {
+      const items = bubbles.filter(b => b.parentId === parentId && !isMovingBubble(b.id));
+      for (let i = 0; i < items.length; i += 1) {
+        for (let j = i + 1; j < items.length; j += 1) {
+          separateBubblePair(items[i], items[j], 16);
+        }
+      }
+      const parent = getBubble(parentId);
+      if (parent) resizeGroupToFit(parent);
+      for (const item of items) keepInsideParent(item);
+    }
+    const parent = getBubble(parentId);
+    if (parent) resizeGroupToFit(parent);
+  }
+
+  function groupAtScreen(x, y, ignoreId = null) {
+    const w = screenToWorld(x, y);
+    const candidates = bubbles
+      .filter(b => b.type === "group" && b.id !== ignoreId && !isDescendant(b.id, ignoreId) && b.parentId !== ignoreId)
+      .filter(b => Math.hypot(w.x - b.x, w.y - b.y) < b.r - 22)
+      .sort((a, b) => a.r - b.r);
+    return candidates[0] || null;
+  }
+
+  function hitBubbleAt(x, y, ignoreId = null, includeGroups = true) {
+    const w = screenToWorld(x, y);
+    return bubbles
+      .filter(b => b.id !== ignoreId && (includeGroups || b.type !== "group"))
+      .filter(b => Math.hypot(w.x - b.x, w.y - b.y) <= b.r)
+      .sort((a, b) => depthOf(b) - depthOf(a) || a.r - b.r)[0] || null;
+  }
+
+  function updateRelationPositions() {
+    for (const link of links) {
+      if (!link.labelBubbleId) continue;
+      const label = getBubble(link.labelBubbleId);
+      const a = getBubble(link.a);
+      const b = getBubble(link.b);
+      if (!label || !a || !b || !label.lockedToLink) continue;
+      label.x = (a.x + b.x) / 2;
+      label.y = (a.y + b.y) / 2;
+    }
+  }
+
+  function ensureBubbleElement(bubble) {
+    let el = document.getElementById(bubble.id);
+    if (el) return el;
+    el = document.createElement("div");
+    el.className = "bubble";
+    el.id = bubble.id;
+    el.dataset.id = bubble.id;
+    el.addEventListener("pointerdown", onBubblePointerDown);
+    el.addEventListener("pointermove", onBubblePointerMove);
+    el.addEventListener("pointerup", onBubblePointerUp);
+    el.addEventListener("pointercancel", onBubblePointerUp);
+    el.addEventListener("dblclick", onBubbleDoubleClick);
+    els.bubbleLayer.appendChild(el);
+    return el;
+  }
+
+  function attachGroupLabelEvents(label, bubble) {
+    label.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      label.dataset.tapStartX = String(event.clientX);
+      label.dataset.tapStartY = String(event.clientY);
+      label.setPointerCapture(event.pointerId);
+    });
+    label.addEventListener("pointerup", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = Number(label.dataset.tapStartX || event.clientX);
+      const startY = Number(label.dataset.tapStartY || event.clientY);
+      delete label.dataset.tapStartX;
+      delete label.dataset.tapStartY;
+      if (Math.hypot(event.clientX - startX, event.clientY - startY) > 8) return;
+      gesture = null;
+      editGroupName(bubble);
+    });
+    label.addEventListener("pointercancel", () => {
+      delete label.dataset.tapStartX;
+      delete label.dataset.tapStartY;
+    });
+  }
+
+  function renderBubbles() {
+    updateRelationPositions();
+    const now = performance.now();
+    const visible = new Set();
+    const ordered = [...bubbles].sort((a, b) => {
+      if (a.type === "group" && b.type !== "group") return -1;
+      if (a.type !== "group" && b.type === "group") return 1;
+      return depthOf(a) - depthOf(b);
+    });
+
+    for (const bubble of ordered) {
+      const p = worldToScreen(bubble.x, bubble.y);
+      const screenR = bubble.r * camera.zoom;
+      if (p.x < -screenR - 500 || p.x > board.w + screenR + 500 || p.y < -screenR - 500 || p.y > board.h + screenR + 500) {
+        const old = document.getElementById(bubble.id);
+        if (old) old.remove();
+        continue;
+      }
+
+      visible.add(bubble.id);
+      const el = ensureBubbleElement(bubble);
+      const size = bubble.r * 2;
+      const isSelected = selectedIds.has(bubble.id) || selectedId === bubble.id;
+      el.classList.toggle("group", bubble.type === "group");
+      el.classList.toggle("relation", bubble.type === "relation");
+      el.classList.toggle("selected", isSelected);
+      el.classList.toggle("multi-selected", selectedIds.size > 1 && selectedIds.has(bubble.id));
+      el.classList.toggle("connecting", gesture?.type === "bubble" && gesture.id === bubble.id && gesture.connecting);
+      el.classList.toggle("drop-target", dropTargetId === bubble.id);
+
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.fontSize = `${Math.max(11, 15 * (bubble.scale || 1))}px`;
+      el.style.padding = `${Math.max(10, 16 * (bubble.scale || 1))}px`;
+      el.style.color = bubble.type === "group" ? "rgba(23, 32, 51, .36)" : (bubble.textColor || defaultTextColor);
+
+      if (bubble.type === "group") {
+        el.textContent = "";
+        el.appendChild(createGroupBlobSvg(bubble));
+        const label = document.createElement("div");
+        label.className = "group-label";
+        label.textContent = bubble.name || "大バブル";
+        label.style.color = bubble.textColor || "rgba(23, 32, 51, .84)";
+        const labelScale = camera.zoom < .72 ? .72 / camera.zoom : 1;
+        label.style.transform = `translateX(-50%) scale(${labelScale})`;
+        attachGroupLabelEvents(label, bubble);
+        el.appendChild(label);
+      } else {
+        el.textContent = bubble.text || "";
+      }
+
+      if (bubble.popping && bubble.frozenTransform) {
+        el.style.transform = bubble.frozenTransform;
+      } else {
+        const bob = bubble.type === "group" || isSelected ? 0 : Math.sin(now / 850 + bubble.phase) * 1.8;
+        const warp = bubble.type === "group" && bubble.warp ? bubble.warp : null;
+        if (warp && warp.amount > .01) {
+          const angle = Math.atan2(warp.y, warp.x);
+          const stretch = 1 + warp.amount * .025;
+          const squeeze = 1 - warp.amount * .015;
+          el.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2 + bob}px) rotate(${angle}rad) scale(${stretch * camera.zoom}, ${squeeze * camera.zoom}) rotate(${-angle}rad)`;
+        } else {
+          el.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2 + bob}px) scale(${camera.zoom})`;
+        }
+      }
+      const selectedBoost = isSelected ? (bubble.type === "group" ? 2 : 1000) : 0;
+      el.style.zIndex = String((bubble.type === "group" ? 5 : 30) + depthOf(bubble) * 10 + selectedBoost);
+    }
+
+    for (const el of [...els.bubbleLayer.querySelectorAll(".bubble")]) {
+      if (!visible.has(el.id)) el.remove();
+    }
+  }
+
+  function drawLinks() {
+    els.linkLayer.innerHTML = "";
+    for (const link of links) {
+      const a = getBubble(link.a);
+      const b = getBubble(link.b);
+      if (!a || !b) continue;
+      const pa = worldToScreen(a.x, a.y);
+      const pb = worldToScreen(b.x, b.y);
+
+      const hit = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      hit.setAttribute("x1", pa.x);
+      hit.setAttribute("y1", pa.y);
+      hit.setAttribute("x2", pb.x);
+      hit.setAttribute("y2", pb.y);
+      hit.classList.add("link-hit");
+      hit.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        selectedIds.clear();
+        selectedId = null;
+        selectedLinkId = link.id;
+        render();
+      });
+      els.linkLayer.appendChild(hit);
+
+      const visible = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      visible.setAttribute("x1", pa.x);
+      visible.setAttribute("y1", pa.y);
+      visible.setAttribute("x2", pb.x);
+      visible.setAttribute("y2", pb.y);
+      visible.setAttribute("stroke-width", link.id === selectedLinkId ? Math.max(4, 4 * camera.zoom) : Math.max(2, 2.8 * camera.zoom));
+      visible.classList.add("link-visible");
+      if (link.id === selectedLinkId) visible.classList.add("selected");
+      els.linkLayer.appendChild(visible);
+    }
+
+    if (gesture?.type === "bubble" && gesture.connecting) {
+      const source = getBubble(gesture.id);
+      if (source) {
+        const a = worldToScreen(source.x, source.y);
+        const b = { x: gesture.clientX, y: gesture.clientY };
+        const temp = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        temp.setAttribute("x1", a.x);
+        temp.setAttribute("y1", a.y);
+        temp.setAttribute("x2", b.x);
+        temp.setAttribute("y2", b.y);
+        temp.setAttribute("stroke-width", Math.max(3, 3 * camera.zoom));
+        temp.classList.add("link-visible", "selected");
+        els.linkLayer.appendChild(temp);
+      }
+    }
+  }
+
+  function render() {
+    updateMapTransform();
+    drawLinks();
+    renderBubbles();
+    updateToolState();
+  }
+
+  function tick(now) {
+    if (gesture?.type === "pumpHold" && gesture.started) {
+      const b = getBubble(gesture.id);
+      if (b) {
+        if (b.type === "group") {
+          const step = Math.max(1.4, b.r * .012);
+          b.r = clamp(b.r + step, 130, 900);
+          b.manualR = b.r;
+        } else {
+          b.r = clamp(b.r + .55, 34, 430);
+          b.scale = clamp((b.scale || 1) + .01, .55, 4.8);
+        }
+        pushAwayFrom(b, 1);
+        resizeAncestors(b);
+      }
+    }
+    if (gesture?.type === "pinShrink" && gesture.started) {
+      const b = getBubble(gesture.id);
+      if (b) {
+        if (b.type === "group") {
+          // 中の子バブルを詰め直しながら、収まる限界まで縮める
+          const step = Math.max(1.4, b.r * .012);
+          applyManualGroupRadius(b, Math.max(130, b.r - step));
+        } else {
+          b.r = clamp(b.r - .62, 34, 430);
+          b.scale = clamp((b.scale || 1) - .01, .55, 4.8);
+        }
+        resizeAncestors(b);
+      }
+    }
+
+    for (const b of bubbles) {
+      if (b.popping) continue;
+      if (gesture?.type === "bubble" && gesture.id === b.id) continue;
+      if (gesture?.type === "bubble" && gesture.movingIds?.includes(b.id)) continue;
+      if (gesture?.type === "resize" && gesture.id === b.id) continue;
+      b.x += b.vx || 0;
+      b.y += b.vy || 0;
+      b.vx *= .86;
+      b.vy *= .86;
+      if (b.type !== "group" && !b.parentId) {
+        b.vx += Math.sin(now / 1250 + b.phase) * .0045;
+        b.vy += Math.cos(now / 1430 + b.phase) * .0045;
+      }
+      const speed = Math.hypot(b.vx, b.vy);
+      if (speed > .82) {
+        b.vx *= .82 / speed;
+        b.vy *= .82 / speed;
+      }
+      if (Math.abs(b.vx) < .001) b.vx = 0;
+      if (Math.abs(b.vy) < .001) b.vy = 0;
+      if (b.warp) {
+        b.warp.amount *= .9;
+        if (b.warp.amount < .01) delete b.warp;
+      }
+    }
+
+    resolveOverlaps(3);
+    render();
+    if (now - lastFrameSave > 3500 && !gesture) {
+      saveCurrentData();
+      lastFrameSave = now;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function startBubbleGesture(event, bubble, el) {
+    const movingIds = selectedIds.size > 1 && selectedIds.has(bubble.id)
+      ? selectedTopLevelBubbles().map(b => b.id)
+      : [bubble.id];
+    if (event.pointerType !== "touch") {
+      selectOnly(bubble.id);
+      for (const id of movingIds) selectedIds.add(id);
+      selectedId = bubble.id;
+    } else if (selectionMode && selectedIds.has(bubble.id)) {
+      selectedId = bubble.id;
+    }
+    dropTargetId = null;
+    const start = screenToWorld(event.clientX, event.clientY);
+    const longTimer = setTimeout(() => {
+      if (event.pointerType !== "touch" && bubble.type !== "group" && gesture?.type === "bubble" && gesture.id === bubble.id && !gesture.movedFar) {
+        gesture.connecting = true;
+        gesture.clientX = event.clientX;
+        gesture.clientY = event.clientY;
+        showToast("つなぎ先で離す");
+        render();
+      }
+    }, 450);
+    gesture = {
+      type: "bubble",
+      id: bubble.id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offsetX: start.x - bubble.x,
+      offsetY: start.y - bubble.y,
+      movingIds,
+      startCamera: { ...camera },
+      lastWorldX: start.x,
+      lastWorldY: start.y,
+      lastT: performance.now(),
+      movedFar: false,
+      connecting: false,
+      dragReady: event.pointerType !== "touch",
+      parentRimState: {},
+      longTimer
+    };
+    if (event.pointerType === "touch") {
+      gesture.dragTimer = setTimeout(() => {
+        if (gesture?.type === "bubble" && gesture.id === bubble.id && !gesture.movedFar) {
+          gesture.dragReady = true;
+          showToast("移動");
+        }
+      }, 180);
+    }
+    el.setPointerCapture(event.pointerId);
+  }
+
+  function startResizeGesture(event, bubble, el) {
+    const w = screenToWorld(event.clientX, event.clientY);
+    gesture = {
+      type: "resize",
+      id: bubble.id,
+      pointerId: event.pointerId,
+      startR: bubble.r,
+      startScale: bubble.scale || 1,
+      startDist: Math.max(1, Math.hypot(w.x - bubble.x, w.y - bubble.y))
+    };
+    el.setPointerCapture(event.pointerId);
+  }
+
+  function startPumpGesture(event, bubble, el) {
+    resetModeIdleTimer();
+    selectedId = bubble.id;
+    selectedLinkId = null;
+    const timer = setTimeout(() => {
+      if (gesture?.type === "pumpHold" && gesture.id === bubble.id) {
+        gesture.started = true;
+        showToast("ふくらませ中");
+      }
+    }, 260);
+    gesture = { type: "pumpHold", id: bubble.id, pointerId: event.pointerId, started: false, timer };
+    el.setPointerCapture(event.pointerId);
+  }
+
+  function startPinGesture(event, bubble, el) {
+    resetModeIdleTimer();
+    selectedId = bubble.id;
+    selectedLinkId = null;
+    const timer = setTimeout(() => {
+      if (gesture?.type === "pinShrink" && gesture.id === bubble.id) {
+        gesture.started = true;
+        showToast("空気抜き中");
+      }
+    }, 330);
+    gesture = { type: "pinShrink", id: bubble.id, pointerId: event.pointerId, started: false, timer };
+    el.setPointerCapture(event.pointerId);
+  }
+
+  function onBubblePointerDown(event) {
+    clearTimeout(pendingGroupRenameTimer);
+    const el = event.currentTarget;
+    const bubble = getBubble(el.dataset.id);
+    if (!bubble) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.pointerType === "touch") {
+      const now = performance.now();
+      const tapDist = Math.hypot(event.clientX - lastTouchTap.x, event.clientY - lastTouchTap.y);
+      const isDoubleTap = lastTouchTap.id === bubble.id && now - lastTouchTap.time < 320 && tapDist < 28;
+      lastTouchTap = { id: bubble.id, time: now, x: event.clientX, y: event.clientY };
+      if (isDoubleTap) {
+        suppressDoubleClickUntil = now + 500;
+        pointerMap.delete(event.pointerId);
+        addSelectionModeBubble(bubble.id);
+        return;
+      }
+      pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointerMap.size >= 2) {
+        const previousGesture = gesture;
+        if (startPinchPanFromPointers()) {
+          if (previousGesture?.longTimer) clearTimeout(previousGesture.longTimer);
+          if (previousGesture?.dragTimer) clearTimeout(previousGesture.dragTimer);
+          el.setPointerCapture(event.pointerId);
+          render();
+          return;
+        }
+      }
+    }
+
+    if (event.shiftKey) {
+      toggleBubbleSelection(bubble.id);
+      render();
+      return;
+    }
+    if (pinMode) {
+      startPinGesture(event, bubble, el);
+      return;
+    }
+    if (pumpMode) {
+      startPumpGesture(event, bubble, el);
+      return;
+    }
+    startBubbleGesture(event, bubble, el);
+    render();
+  }
+
+  function onBubblePointerMove(event) {
+    if (!gesture) return;
+    if (event.pointerType === "touch" && pointerMap.has(event.pointerId)) {
+      pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (gesture.type === "pinchpan") {
+        event.preventDefault();
+        event.stopPropagation();
+        updateCanvasGesture(event);
+        return;
+      }
+    }
+    const bubble = getBubble(gesture.id);
+    if (!bubble) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (gesture.type === "resize") {
+      const w = screenToWorld(event.clientX, event.clientY);
+      const dist = Math.max(18, Math.hypot(w.x - bubble.x, w.y - bubble.y));
+      const newR = clamp(gesture.startR * (dist / gesture.startDist), 34, bubble.type === "group" ? 900 : 430);
+      if (bubble.type === "group") {
+        applyManualGroupRadius(bubble, newR);
+      } else {
+        bubble.r = newR;
+        bubble.scale = clamp(gesture.startScale * (newR / gesture.startR), .55, 4.8);
+        if (bubble.type === "relation") bubble.lockedToLink = false;
+      }
+      pushAwayFrom(bubble, 2);
+      resizeAncestors(bubble);
+      render();
+      return;
+    }
+
+    if (gesture.type !== "bubble" || gesture.id !== bubble.id) return;
+    const now = performance.now();
+    const moved = Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY);
+    if (moved > 8) gesture.movedFar = true;
+    gesture.clientX = event.clientX;
+    gesture.clientY = event.clientY;
+
+    if (event.pointerType === "touch" && !gesture.dragReady) {
+      if (moved > 8) {
+        if (gesture.longTimer) clearTimeout(gesture.longTimer);
+        if (gesture.dragTimer) clearTimeout(gesture.dragTimer);
+        gesture.touchPanned = true;
+        camera.x = gesture.startCamera.x - (event.clientX - gesture.startX) / camera.zoom;
+        camera.y = gesture.startCamera.y - (event.clientY - gesture.startY) / camera.zoom;
+        render();
+      }
+      return;
+    }
+
+    if (gesture.connecting) {
+      const target = hitBubbleAt(event.clientX, event.clientY, bubble.id, false);
+      dropTargetId = target?.id || null;
+      render();
+      return;
+    }
+
+    const p = screenToWorld(event.clientX, event.clientY);
+    const nextX = p.x - gesture.offsetX;
+    const nextY = p.y - gesture.offsetY;
+    const dx = nextX - bubble.x;
+    const dy = nextY - bubble.y;
+    const vx = (p.x - gesture.lastWorldX) / (Math.max(16, now - gesture.lastT) / 16) * .24;
+    const vy = (p.y - gesture.lastWorldY) / (Math.max(16, now - gesture.lastT) / 16) * .24;
+    const moving = (gesture.movingIds || [bubble.id]).map(getBubble).filter(Boolean);
+    for (const item of moving) {
+      item.vx = vx;
+      item.vy = vy;
+      moveTree(item, dx, dy);
+      if (item.type === "relation") item.lockedToLink = false;
+    }
+    gesture.lastWorldX = p.x;
+    gesture.lastWorldY = p.y;
+    gesture.lastT = now;
+
+    dropTargetId = null;
+    const parent = bubble.parentId ? getBubble(bubble.parentId) : null;
+    if (parent) updateRimInteraction(parent, bubble, dx, dy, .72);
+    const targetContact = rimTargetForBubble(bubble, { margin: Math.max(20, bubble.r * .18) });
+    if (targetContact && targetContact.group.id !== bubble.parentId) {
+      dropTargetId = targetContact.group.id;
+      updateRimInteraction(targetContact.group, bubble, dx, dy, .78);
+    }
+    if (bubble.type === "group") resizeAncestors(bubble);
+    render();
+  }
+
+  function onBubblePointerUp(event) {
+    if (!gesture) return;
+    if (event.pointerType === "touch") pointerMap.delete(event.pointerId);
+    if (gesture.type === "pinchpan") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pointerMap.size < 2) {
+        gesture = null;
+        saveCurrentData();
+        render();
+      }
+      return;
+    }
+    const bubble = getBubble(gesture.id);
+    event.preventDefault();
+    event.stopPropagation();
+    if (gesture.longTimer) clearTimeout(gesture.longTimer);
+    if (gesture.timer) clearTimeout(gesture.timer);
+    if (gesture.dragTimer) clearTimeout(gesture.dragTimer);
+
+    if (gesture.touchPanned) {
+      gesture = null;
+      if (event.pointerType === "touch" && !selectionMode) clearSelection();
+      saveCurrentData();
+      render();
+      return;
+    }
+
+    if (gesture.type === "pumpHold") {
+      if (gesture.started) recordHistory();
+      gesture = null;
+      render();
+      return;
+    }
+
+    if (gesture.type === "pinShrink") {
+      const wasShrink = gesture.started;
+      gesture = null;
+      if (!bubble) return;
+      if (wasShrink) {
+        recordHistory();
+        render();
+      } else {
+        removeBubble(bubble.id, true);
+      }
+      return;
+    }
+
+    if (gesture.type === "resize") {
+      gesture = null;
+      if (bubble) {
+        resizeAncestors(bubble);
+        resolveOverlaps(8);
+        recordHistory();
+        render();
+      }
+      return;
+    }
+
+    if (!bubble || gesture.type !== "bubble") {
+      gesture = null;
+      return;
+    }
+
+    if (gesture.connecting) {
+      const target = hitBubbleAt(event.clientX, event.clientY, bubble.id, false);
+      dropTargetId = null;
+      clearDragWarps();
+      gesture = null;
+      if (target) createLink(bubble.id, target.id);
+      else render();
+      return;
+    }
+
+    if (bubble.type === "group" && !gesture.movedFar) {
+      dropTargetId = null;
+      clearDragWarps();
+      gesture = null;
+      if (event.pointerType === "touch") {
+        if (!selectionMode) clearSelection();
+        const groupId = bubble.id;
+        clearTimeout(pendingGroupRenameTimer);
+        pendingGroupRenameTimer = setTimeout(() => {
+          const group = getBubble(groupId);
+          if (group) editGroupName(group);
+        }, 320);
+      }
+      render();
+      return;
+    }
+
+    const moving = (gesture.movingIds || [bubble.id]).map(getBubble).filter(Boolean);
+    const pointerWorld = screenToWorld(event.clientX, event.clientY);
+    const group = dropGroupForBubble(bubble, pointerWorld);
+    if (group) {
+      for (const item of moving) {
+        if (group.id !== item.parentId && item.id !== group.id && !isDescendant(group.id, item.id)) attachToGroup(item, group);
+      }
+      growGroupToFit(group, { includeMoving: true });
+      settleParentContents(group.id, 22);
+      growGroupToFit(group, { includeMoving: true });
+    } else {
+      for (const item of moving) {
+        maybeDetachFromParent(item, pointerWorld);
+        resizeAncestors(item);
+      }
+    }
+    dropTargetId = null;
+    clearDragWarps();
+    gesture = null;
+    if (event.pointerType === "touch" && !selectionMode) clearSelection();
+    resolveOverlaps(10);
+    normalizeGroupShellSizes();
+    recordHistory();
+    render();
+  }
+
+  function onBubbleDoubleClick(event) {
+    if (performance.now() < suppressDoubleClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (pinMode || pumpMode) return;
+    const bubble = getBubble(event.currentTarget.dataset.id);
+    if (!bubble) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (bubble.type === "group") {
+      editGroupName(bubble);
+      return;
+    }
+    openDialog({ title: "メモを編集", value: bubble.text || "", okLabel: "保存" }).then(next => {
+      if (next === null) return;
+      bubble.text = next.trim() || bubble.text;
+      bubble.r = Math.max(bubble.r, radiusForText(bubble.text, bubble.scale || 1));
+      recordHistory();
+      render();
+    });
+  }
+
+  function editGroupName(group) {
+    openDialog({ title: "大バブルの名前", value: group.name || "大バブル", okLabel: "変更" }).then(name => {
+      if (name === null) return;
+      group.name = name.trim() || "大バブル";
+      selectOnly(group.id);
+      recordHistory();
+      render();
+    });
+  }
+
+  function drawLasso() {
+    lassoCtx.clearRect(0, 0, board.w, board.h);
+    if (lassoPoints.length < 2) return;
+    lassoCtx.beginPath();
+    lassoCtx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+    for (const point of lassoPoints) lassoCtx.lineTo(point.x, point.y);
+    lassoCtx.closePath();
+    lassoCtx.fillStyle = "rgba(53, 120, 229, .08)";
+    lassoCtx.strokeStyle = "rgba(53, 120, 229, .72)";
+    lassoCtx.lineWidth = 2;
+    lassoCtx.fill();
+    lassoCtx.stroke();
+  }
+
+  function pointInPoly(point, poly) {
+    if (poly.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i].x;
+      const yi = poly[i].y;
+      const xj = poly[j].x;
+      const yj = poly[j].y;
+      if (((yi > point.y) !== (yj > point.y)) && point.x < (xj - xi) * (point.y - yi) / (yj - yi + .000001) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function finishLasso() {
+    lassoCtx.clearRect(0, 0, board.w, board.h);
+    if (lassoPoints.length < 6) return;
+    let picked = bubbles.filter(b => pointInPoly(worldToScreen(b.x, b.y), lassoPoints));
+    picked = picked.filter(b => !picked.some(parent => parent.id !== b.id && isDescendant(b.id, parent.id)));
+    if (!picked.length) {
+      const worldPoints = lassoPoints.map(point => screenToWorld(point.x, point.y));
+      const minX = Math.min(...worldPoints.map(p => p.x));
+      const maxX = Math.max(...worldPoints.map(p => p.x));
+      const minY = Math.min(...worldPoints.map(p => p.y));
+      const maxY = Math.max(...worldPoints.map(p => p.y));
+      const x = (minX + maxX) / 2;
+      const y = (minY + maxY) / 2;
+      const r = clamp(Math.max(135, Math.hypot(maxX - minX, maxY - minY) / 2), 130, 900);
+      const group = createBubble("", x, y, "group", { r, manualR: r, name: "大バブル" });
+      pulseGroup(group, 0, -1, .16);
+      selectOnly(group.id);
+      recordHistory();
+      render();
+      return;
+    }
+    const parentId = picked[0].parentId || null;
+    picked = picked.filter(b => (b.parentId || null) === parentId);
+    if (!picked.length) return;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const b of picked) {
+      minX = Math.min(minX, b.x - b.r);
+      maxX = Math.max(maxX, b.x + b.r);
+      minY = Math.min(minY, b.y - b.r);
+      maxY = Math.max(maxY, b.y + b.r);
+    }
+    const x = (minX + maxX) / 2;
+    const y = (minY + maxY) / 2;
+    const r = Math.max(135, Math.hypot(maxX - minX, maxY - minY) / 2 + 48);
+    const group = createBubble("", x, y, "group", { r, manualR: r, parentId, name: "大バブル" });
+    for (const b of picked) setParent(b, group.id);
+    applyManualGroupRadius(group, r);
+    pulseGroup(group, 0, -1, .16);
+    selectOnly(group.id);
+    recordHistory();
+    render();
+  }
+
+  function startCanvasGesture(event) {
+    if (event.pointerType === "mouse" || !selectionMode) clearSelection();
+    dropTargetId = null;
+    pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    els.stage.setPointerCapture(event.pointerId);
+
+    if (event.pointerType === "mouse") {
+      if (event.button === 2 || (event.button === 0 && lassoMode)) {
+        lassoPoints = [{ x: event.clientX, y: event.clientY }];
+        gesture = { type: "lasso", pointerId: event.pointerId };
+        drawLasso();
+      } else {
+        gesture = {
+          type: "pan",
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startCamera: { ...camera }
+        };
+      }
+      render();
+      return;
+    }
+
+    if (pointerMap.size === 1) {
+      if (!lassoMode) {
+        gesture = {
+          type: "pan",
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startCamera: { ...camera },
+          touch: true
+        };
+        render();
+        return;
+      }
+      lassoPoints = [{ x: event.clientX, y: event.clientY }];
+      gesture = { type: "lasso", pointerId: event.pointerId, touch: true };
+      drawLasso();
+    } else if (pointerMap.size === 2) {
+      const previousGesture = gesture;
+      if (previousGesture?.longTimer) clearTimeout(previousGesture.longTimer);
+      if (previousGesture?.dragTimer) clearTimeout(previousGesture.dragTimer);
+      lassoPoints = [];
+      lassoCtx.clearRect(0, 0, board.w, board.h);
+      const points = [...pointerMap.values()];
+      const cx = (points[0].x + points[1].x) / 2;
+      const cy = (points[0].y + points[1].y) / 2;
+      gesture = {
+        type: "pinchpan",
+        startDist: Math.max(10, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)),
+        startZoom: camera.zoom,
+        worldAtCenter: screenToWorld(cx, cy)
+      };
+    }
+    render();
+  }
+
+  function startPinchPanFromPointers() {
+    if (pointerMap.size < 2) return false;
+    const points = [...pointerMap.values()].slice(0, 2);
+    const cx = (points[0].x + points[1].x) / 2;
+    const cy = (points[0].y + points[1].y) / 2;
+    gesture = {
+      type: "pinchpan",
+      startDist: Math.max(10, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)),
+      startZoom: camera.zoom,
+      worldAtCenter: screenToWorld(cx, cy)
+    };
+    return true;
+  }
+
+  function updateCanvasGesture(event) {
+    if (!pointerMap.has(event.pointerId)) return;
+    pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (gesture?.type === "lasso") {
+      if (lassoMode) resetModeIdleTimer();
+      lassoPoints.push({ x: event.clientX, y: event.clientY });
+      drawLasso();
+      return;
+    }
+
+    if (gesture?.type === "pan") {
+      camera.x = gesture.startCamera.x - (event.clientX - gesture.startX) / camera.zoom;
+      camera.y = gesture.startCamera.y - (event.clientY - gesture.startY) / camera.zoom;
+      render();
+      return;
+    }
+
+    if (gesture?.type === "pinchpan" && pointerMap.size >= 2) {
+      const points = [...pointerMap.values()].slice(0, 2);
+      const dist = Math.max(10, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y));
+      const cx = (points[0].x + points[1].x) / 2;
+      const cy = (points[0].y + points[1].y) / 2;
+      camera.zoom = clamp(gesture.startZoom * (dist / gesture.startDist), MIN_ZOOM, MAX_ZOOM);
+      camera.x = gesture.worldAtCenter.x - (cx - board.w / 2) / camera.zoom;
+      camera.y = gesture.worldAtCenter.y - (cy - board.h / 2) / camera.zoom;
+      render();
+    }
+
+  }
+
+  function endCanvasGesture(event) {
+    pointerMap.delete(event.pointerId);
+    if (gesture?.type === "lasso" && (event.pointerType === "mouse" || pointerMap.size === 0)) finishLasso();
+    if (pointerMap.size === 0 || event.pointerType === "mouse") {
+      const endedType = gesture?.type;
+      const isEmptySelectionTap = selectionMode
+        && endedType === "pan"
+        && gesture?.touch
+        && Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 8;
+      const shouldRecord = endedType === "pan" || endedType === "pinchpan";
+      gesture = null;
+      if (isEmptySelectionTap) {
+        exitSelectionMode();
+        render();
+        return;
+      }
+      if (shouldRecord) {
+        saveCurrentData();
+      }
+    }
+    render();
+  }
+
+  function alignableBubbles() {
+    return selectedTopLevelBubbles();
+  }
+
+  function alignmentPlan(axis) {
+    const items = alignableBubbles();
+    if (items.length < 2) return null;
+    const sorted = [...items].sort((a, b) => axis === "horizontal" ? a.x - b.x : a.y - b.y);
+    const centerX = sorted.reduce((sum, b) => sum + b.x, 0) / sorted.length;
+    const centerY = sorted.reduce((sum, b) => sum + b.y, 0) / sorted.length;
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const currentRange = axis === "horizontal" ? Math.abs(last.x - first.x) : Math.abs(last.y - first.y);
+    const minSpacing = Math.max(56, ...sorted.map(b => b.r * 2 + 12));
+    const spacing = Math.max(minSpacing, currentRange / Math.max(1, sorted.length - 1));
+    return { sorted, centerX, centerY, spacing, minSpacing };
+  }
+
+  function applyAlignment(axis, spacing = null, plan = null) {
+    const info = plan || alignmentPlan(axis);
+    if (!info) {
+      showToast("バブルを2つ以上選択してください");
+      return null;
+    }
+    const gap = Math.max(info.minSpacing, spacing ?? info.spacing);
+    const start = -gap * (info.sorted.length - 1) / 2;
+    info.sorted.forEach((bubble, index) => {
+      if (axis === "horizontal") {
+        bubble.x = info.centerX + start + gap * index;
+        bubble.y = info.centerY;
+      } else {
+        bubble.x = info.centerX;
+        bubble.y = info.centerY + start + gap * index;
+      }
+      bubble.vx = 0;
+      bubble.vy = 0;
+      if (bubble.type === "relation") bubble.lockedToLink = false;
+      resizeAncestors(bubble);
+    });
+    resolveOverlaps(2);
+    render();
+    return { ...info, spacing: gap };
+  }
+
+  function startSelectionSizeGesture(event) {
+    if (!selectionMode) return;
+    const selected = selectedTopLevelBubbles();
+    if (!selected.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    gesture = {
+      type: "selectionSize",
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      bubbles: selected.map(b => ({ id: b.id, r: b.r, scale: b.scale || 1 }))
+    };
+    els.selectionSizeSlider.setPointerCapture(event.pointerId);
+  }
+
+  function updateSelectionSizeGesture(event) {
+    if (gesture?.type !== "selectionSize" || gesture.pointerId !== event.pointerId) return false;
+    event.preventDefault();
+    const ratio = clamp(1 + (gesture.startY - event.clientY) / 140, .35, 3.2);
+    for (const start of gesture.bubbles) {
+      const bubble = getBubble(start.id);
+      if (!bubble) continue;
+      if (bubble.type === "group") {
+        applyManualGroupRadius(bubble, start.r * ratio);
+      } else {
+        bubble.r = clamp(start.r * ratio, 34, 430);
+        bubble.scale = clamp(start.scale * ratio, .55, 4.8);
+        if (bubble.type === "relation") bubble.lockedToLink = false;
+      }
+      resizeAncestors(bubble);
+    }
+    resolveOverlaps(2);
+    render();
+    return true;
+  }
+
+  function endSelectionSizeGesture(event) {
+    if (gesture?.type !== "selectionSize" || gesture.pointerId !== event.pointerId) return false;
+    event.preventDefault();
+    gesture = null;
+    recordHistory();
+    render();
+    return true;
+  }
+
+  function startAlignGesture(event, axis) {
+    event.preventDefault();
+    event.stopPropagation();
+    const plan = alignmentPlan(axis);
+    if (!plan) {
+      showToast("Shiftでバブルを2つ以上選択");
+      return;
+    }
+    const applied = applyAlignment(axis, null, plan);
+    gesture = {
+      type: "align",
+      axis,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startSpacing: applied.spacing,
+      plan: applied,
+      moved: false
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    els.alignTool.classList.add("open");
+  }
+
+  function updateAlignGesture(event) {
+    if (gesture?.type !== "align" || gesture.pointerId !== event.pointerId) return false;
+    event.preventDefault();
+    const delta = gesture.axis === "horizontal" ? event.clientX - gesture.startX : event.clientY - gesture.startY;
+    if (Math.abs(delta) > 2) gesture.moved = true;
+    const spacing = gesture.startSpacing + delta / camera.zoom;
+    applyAlignment(gesture.axis, spacing, gesture.plan);
+    return true;
+  }
+
+  function endAlignGesture(event) {
+    if (gesture?.type !== "align" || gesture.pointerId !== event.pointerId) return false;
+    event.preventDefault();
+    gesture = null;
+    els.alignTool.classList.remove("open");
+    recordHistory();
+    render();
+    return true;
+  }
+
+  function fitToBubbles() {
+    const roots = bubbles.filter(b => !b.parentId);
+    const items = roots.length ? roots : bubbles;
+    if (!items.length) {
+      camera = { x: 0, y: 0, zoom: 1 };
+      render();
+      return;
+    }
+    const minX = Math.min(...items.map(b => b.x - b.r));
+    const maxX = Math.max(...items.map(b => b.x + b.r));
+    const minY = Math.min(...items.map(b => b.y - b.r));
+    const maxY = Math.max(...items.map(b => b.y + b.r));
+    camera.x = (minX + maxX) / 2;
+    camera.y = (minY + maxY) / 2;
+    camera.zoom = clamp(Math.min(board.w / Math.max(320, maxX - minX + 240), board.h / Math.max(320, maxY - minY + 240)), MIN_ZOOM, 5);
+    saveCurrentData();
+    render();
+  }
+
+  function resizeBoard() {
+    board = { w: window.innerWidth, h: window.innerHeight };
+    const ratio = window.devicePixelRatio || 1;
+    els.lassoCanvas.width = Math.round(board.w * ratio);
+    els.lassoCanvas.height = Math.round(board.h * ratio);
+    els.lassoCanvas.style.width = `${board.w}px`;
+    els.lassoCanvas.style.height = `${board.h}px`;
+    lassoCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    render();
+  }
+
+  els.dialogOkBtn.addEventListener("click", event => {
+    event.preventDefault();
+    closeDialog(dialogState?.withInput ? els.dialogInput.value : true);
+  });
+  els.dialogCancelBtn.addEventListener("click", event => {
+    event.preventDefault();
+    closeDialog(null);
+  });
+  els.dialogShade.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    closeDialog(null);
+  });
+  els.dialogInput.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.isComposing) {
+      event.preventDefault();
+      closeDialog(els.dialogInput.value);
+    }
+  });
+
+  els.inputBar.addEventListener("submit", event => {
+    event.preventDefault();
+    addMemo();
+  });
+  els.addBtn.addEventListener("pointerdown", event => {
+    // ボタンにフォーカスを奪わせず、キーボードを開いたまま連続追加できるようにする
+    event.preventDefault();
+  });
+  els.addBtn.addEventListener("touchend", event => {
+    // iOSは合成クリックを経由すると入力欄のIME/フォーカス状態が壊れて
+    // 次の文字が打てなくなるため、タッチ終了時点で確定してクリックを抑止する
+    event.preventDefault();
+    addMemo();
+  }, { passive: false });
+  attachMemoInputEvents(els.input);
+
+  els.stage.addEventListener("contextmenu", event => event.preventDefault());
+  els.stage.addEventListener("wheel", event => {
+    event.preventDefault();
+    const before = screenToWorld(event.clientX, event.clientY);
+    const factor = Math.exp(-event.deltaY * .001);
+    camera.zoom = clamp(camera.zoom * factor, MIN_ZOOM, MAX_ZOOM);
+    const after = screenToWorld(event.clientX, event.clientY);
+    camera.x -= after.x - before.x;
+    camera.y -= after.y - before.y;
+    saveCurrentData();
+    render();
+  }, { passive: false });
+
+  els.stage.addEventListener("pointerdown", event => {
+    if (event.target !== els.stage) return;
+    event.preventDefault();
+    clearTimeout(pendingGroupRenameTimer);
+    startCanvasGesture(event);
+  });
+  els.stage.addEventListener("pointermove", event => {
+    if (!pointerMap.has(event.pointerId)) return;
+    event.preventDefault();
+    updateCanvasGesture(event);
+  });
+  els.stage.addEventListener("pointerup", event => {
+    if (!pointerMap.has(event.pointerId)) return;
+    event.preventDefault();
+    endCanvasGesture(event);
+  });
+  els.stage.addEventListener("pointercancel", event => {
+    if (!pointerMap.has(event.pointerId)) return;
+    endCanvasGesture(event);
+  });
+
+  els.menuBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    toggleSidebar(true);
+  });
+  els.closeSidebarBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    toggleSidebar(false);
+  });
+  els.sidebarShade.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    toggleSidebar(false);
+  });
+  els.newBoardBtn.addEventListener("click", event => {
+    event.preventDefault();
+    createBoard();
+  });
+  els.shareLinkBtn.addEventListener("click", event => {
+    event.preventDefault();
+    shareBoardLink();
+  });
+  els.bgSelect.addEventListener("change", event => {
+    currentBg = event.target.value;
+    applyBackground(currentBg);
+    saveCurrentData();
+  });
+
+  els.undoBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    undo();
+  });
+  els.redoBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    redo();
+  });
+  els.homeBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    camera = { x: 0, y: 0, zoom: 1 };
+    saveCurrentData();
+    render();
+  });
+  els.fitBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    fitToBubbles();
+  });
+  els.shareBtn.addEventListener("click", event => {
+    event.preventDefault();
+    shareBoardLink();
+  });
+  els.lassoBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    lassoMode = !lassoMode;
+    if (lassoMode) {
+      pinMode = false;
+      pumpMode = false;
+      showToast("投げ縄ON");
+    } else {
+      showToast("投げ縄OFF");
+    }
+    resetModeIdleTimer();
+    render();
+  });
+  els.alignBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    if (els.alignBtn.disabled) {
+      showToast("2つ以上選択してください");
+      return;
+    }
+    els.alignTool.classList.toggle("open");
+  });
+  els.alignVerticalBtn.addEventListener("pointerdown", event => startAlignGesture(event, "vertical"));
+  els.alignHorizontalBtn.addEventListener("pointerdown", event => startAlignGesture(event, "horizontal"));
+  els.colorBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    els.colorPalette.classList.toggle("open");
+    updateColorSwatches();
+  });
+  els.colorPalette.addEventListener("pointerdown", event => {
+    const swatch = event.target.closest(".color-swatch");
+    if (!swatch) return;
+    event.preventDefault();
+    setTextColor(swatch.dataset.color);
+    els.colorPalette.classList.remove("open");
+    showToast(selectedId ? "文字色を変えました" : "次の文字色を変えました");
+  });
+
+  els.selectionClearBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    gesture = {
+      type: "selectionClear",
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY
+    };
+    els.selectionClearBtn.setPointerCapture(event.pointerId);
+  });
+  els.selectionSizeSlider.addEventListener("pointerdown", startSelectionSizeGesture);
+
+  els.pumpBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    pumpMode = !pumpMode;
+    if (pumpMode) pinMode = false;
+    if (pumpMode) lassoMode = false;
+    els.colorPalette.classList.remove("open");
+    showToast(pumpMode ? "空気入れON" : "空気入れOFF");
+    resetModeIdleTimer();
+    render();
+  });
+  els.pinBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    pinMode = !pinMode;
+    if (pinMode) pumpMode = false;
+    if (pinMode) lassoMode = false;
+    els.colorPalette.classList.remove("open");
+    showToast(pinMode ? "画鋲ON" : "画鋲OFF");
+    resetModeIdleTimer();
+    render();
+  });
+
+
+  window.addEventListener("resize", resizeBoard);
+  window.addEventListener("pointermove", event => {
+    updateSelectionSizeGesture(event);
+    updateAlignGesture(event);
+  });
+  window.addEventListener("pointerup", event => {
+    if (endSelectionSizeGesture(event)) return;
+    if (gesture?.type === "selectionClear" && gesture.pointerId === event.pointerId) {
+      const dx = event.clientX - gesture.startX;
+      gesture = null;
+      if (dx < -35) {
+        undoSelectionStep();
+        showToast("選択を1つ戻しました");
+      } else {
+        exitSelectionMode();
+        showToast("選択解除");
+        render();
+      }
+      return;
+    }
+    endAlignGesture(event);
+  });
+  document.addEventListener("gesturestart", event => event.preventDefault());
+  document.addEventListener("selectstart", event => {
+    if (event.target.closest("input, textarea, select")) return;
+    event.preventDefault();
+  });
+
+  window.addEventListener("hashchange", () => {
+    importFromShareHash();
+  });
+
+  loadBoardsIndex();
+  importFromShareHash().then(handled => {
+    if (!handled) loadBoard(currentBoardId);
+  });
+  resizeBoard();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
