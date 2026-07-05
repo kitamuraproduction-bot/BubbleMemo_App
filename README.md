@@ -13,7 +13,7 @@ A playful, physics-driven memo app where your thoughts float as bubbles. Write a
 - **Bubble memos** — Type a note and it appears as a floating bubble with soft, organic physics. Drag bubbles around freely; they gently push each other out of the way.
 - **Groups (big bubbles)** — Drop bubbles into a big bubble to group related ideas. Groups auto-resize to fit their contents, can be nested, and can be renamed with a tap.
 - **Pump & pin modes** — Long-press with the pump 🚲 to inflate a bubble (make an idea bigger!), or with the pin 📌 to shrink it. Tap with the pin to pop a bubble. Works on groups too: shrinking a group automatically repacks the bubbles inside.
-- **Connections** — Link two bubbles and label the relationship between them.
+- **Connections** — Link two bubbles with a line to show they're related.
 - **Multiple boards** — Keep separate boards for separate projects, with selectable backgrounds (plain grid, world map, Japan map). The free version supports up to 5 boards.
 - **One-tap sharing** — Tap "Send this board" and a share link is copied to your clipboard. The entire board is compressed and embedded in the URL itself — when someone opens it, an independent copy is imported onto *their* device. No accounts, no server, no collaborative editing surprises.
 - **Undo / redo, lasso selection, alignment tools** — and other small conveniences for tidying up your thoughts.
@@ -27,6 +27,12 @@ BubbleMemo is a **completely serverless** web app:
 - There is no tracking, no analytics, and no account system.
 
 ⚠️ **Note for iOS Safari users:** Safari may delete site data (including your boards) if you don't visit a site for 7 days. Adding BubbleMemo to your home screen exempts it from this cleanup and is the recommended way to use it.
+
+## Disclaimer
+
+BubbleMemo is **not designed for storing confidential or sensitive information**. Please do not use it for passwords, personal data, trade secrets, or anything similar. Also note that share links contain the full board data — anyone who obtains a link can view its contents.
+
+The author assumes **no responsibility or liability whatsoever** for information leakage, data loss, or any other damages arising from the use of this app. Use at your own risk.
 
 ## Running & deploying
 
@@ -71,7 +77,7 @@ This repository is published for **viewing purposes only**. Unauthorized use, co
 - **バブルメモ** — 入力したメモがふわふわ浮かぶバブルになります。ドラッグで自由に動かせて、バブル同士はやわらかく押し合います。
 - **大バブル（グループ）** — バブルを大バブルに放り込んで、関連するアイデアをまとめられます。中身に合わせて自動で伸縮し、入れ子にもでき、タップで名前を変えられます。
 - **空気入れと画鋲** — 空気入れ🚲で長押しするとバブルが膨らみ（アイデアを大きく育てる！）、画鋲📌で長押しすると縮みます。画鋲でタップすると割れます。大バブルにも使えて、縮めるときは中のバブルを自動で詰め直します。
-- **つながり** — バブル同士を線でつないで、関係に名前を付けられます。
+- **つながり** — バブル同士を線でつないで、関連があることを示せます。
 - **複数ボード** — プロジェクトごとにボードを分けられます。背景は通常グリッド・世界地図・日本地図から選択可能。無料版ではボードを最大5個まで作成できます。
 - **ワンタップ共有** — 「このボードを送る」を押すと共有リンクがクリップボードにコピーされます。ボード全体を圧縮してURL自体に埋め込む方式なので、受け取った人が開くと**その人の端末に独立したコピー**として取り込まれます。アカウント不要・サーバー不要で、共同編集による事故も起きません。
 - **アンドゥ/リドゥ、なげなわ選択、整列** — 考えを整えるための小さな便利機能もひと通り揃っています。
@@ -85,6 +91,12 @@ BubbleMemoは**完全サーバーレス**のWebアプリです。
 - トラッキング・アクセス解析・アカウント機能は一切ありません。
 
 ⚠️ **iOS Safariをお使いの方へ:** Safariは7日間アクセスのないサイトのデータ（ボードを含む）を削除することがあります。ホーム画面に追加して使うとこの削除の対象外になるため、ホーム画面からの利用をおすすめします。
+
+## 免責事項
+
+BubbleMemoは**機密情報の記録を想定していません**。パスワード・個人情報・業務上の機密などの保存には使用しないでください。また、共有リンクにはボードの内容がそのまま含まれるため、リンクを知っている人は誰でも内容を閲覧できます。
+
+本アプリの利用に起因する情報漏洩・データ消失・その他一切の損害について、作者は**いかなる責任も負いません**。自己責任でご利用ください。
 
 ## 実行とデプロイ
 
