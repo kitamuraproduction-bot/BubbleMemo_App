@@ -159,6 +159,33 @@ button:disabled {
   filter: drop-shadow(0 0 5px rgba(114, 87, 216, .42));
 }
 
+#linkDeleteBtn {
+  position: fixed;
+  z-index: 31;
+  width: 38px;
+  height: 38px;
+  transform: translate(-50%, -50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e94861;
+  box-shadow: 0 10px 24px rgba(233, 72, 97, .4);
+}
+
+#linkDeleteBtn.show {
+  display: flex;
+}
+
+#linkDeleteBtn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
 .link-hit {
   pointer-events: stroke;
   stroke: transparent;
@@ -850,6 +877,16 @@ button:disabled {
   display: grid;
 }
 
+.palette-edit {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border-radius: 10px;
+  background: rgba(53, 120, 229, .12);
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 13px;
+}
+
 .color-swatch {
   width: 30px;
   height: 30px;
@@ -866,6 +903,22 @@ button:disabled {
 @media (max-width: 620px) {
   .toolbar {
     gap: 6px;
+  }
+
+  .modebar {
+    right: 8px;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .color-palette {
+    top: calc(108px + env(safe-area-inset-top));
+    right: 58px;
+  }
+
+  .align-menu {
+    top: 0;
+    right: calc(100% + 8px);
   }
 
   .icon-btn {
@@ -949,6 +1002,7 @@ button:disabled {
   </div>
 
   <div class="color-palette" id="colorPalette" aria-label="文字色">
+    <button class="palette-edit" id="editTextBtn">文字を変更</button>
     <button class="color-swatch" data-color="#172033" style="--swatch:#172033" title="黒"></button>
     <button class="color-swatch" data-color="#3578e5" style="--swatch:#3578e5" title="青"></button>
     <button class="color-swatch" data-color="#1f9d68" style="--swatch:#1f9d68" title="緑"></button>
@@ -972,6 +1026,10 @@ button:disabled {
     <input id="memoInput" placeholder="メモを書く" autocomplete="off" autocorrect="off" autocapitalize="off">
     <button id="addBtn" type="submit">追加</button>
   </form>
+
+  <button id="linkDeleteBtn" title="つながりを削除">
+    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
 
   <div id="toast" role="status" aria-live="polite"></div>
 
@@ -1038,6 +1096,7 @@ button:disabled {
     stage: document.getElementById("stage"),
     mapLayer: document.getElementById("mapLayer"),
     linkLayer: document.getElementById("linkLayer"),
+    linkDeleteBtn: document.getElementById("linkDeleteBtn"),
     bubbleLayer: document.getElementById("bubbleLayer"),
     lassoCanvas: document.getElementById("lassoCanvas"),
     inputBar: document.getElementById("inputBar"),
@@ -1106,6 +1165,9 @@ button:disabled {
   let modeIdleTimer = null;
   let lassoPoints = [];
   let pendingGroupRenameTimer = null;
+  let lastTappedBubbleId = null;
+  let linkDeleteId = null;
+  let lastLinkTap = { id: null, time: 0 };
   let history = [];
   let historyIndex = -1;
   let suppressHistory = false;
@@ -2179,6 +2241,23 @@ button:disabled {
     render();
   }
 
+  function removeLink(id) {
+    const link = getLink(id);
+    if (!link) return;
+    const labelId = link.labelBubbleId;
+    links = links.filter(l => l.id !== id);
+    if (labelId) {
+      bubbles = bubbles.filter(b => b.id !== labelId);
+      selectedIds.delete(labelId);
+      if (selectedId === labelId) selectedId = null;
+    }
+    if (selectedLinkId === id) selectedLinkId = null;
+    linkDeleteId = null;
+    showToast("つながりを消しました");
+    recordHistory();
+    render();
+  }
+
   function removeBubble(id, animate = true) {
     const bubble = getBubble(id);
     if (!bubble) return;
@@ -2731,6 +2810,13 @@ button:disabled {
       hit.addEventListener("pointerdown", event => {
         event.preventDefault();
         event.stopPropagation();
+        const now = performance.now();
+        if (lastLinkTap.id === link.id && now - lastLinkTap.time < 360) {
+          linkDeleteId = link.id;
+        } else if (linkDeleteId !== link.id) {
+          linkDeleteId = null;
+        }
+        lastLinkTap = { id: link.id, time: now };
         selectedIds.clear();
         selectedId = null;
         selectedLinkId = link.id;
@@ -2747,6 +2833,23 @@ button:disabled {
       visible.classList.add("link-visible");
       if (link.id === selectedLinkId) visible.classList.add("selected");
       els.linkLayer.appendChild(visible);
+    }
+
+    if (linkDeleteId) {
+      const link = getLink(linkDeleteId);
+      const la = link && getBubble(link.a);
+      const lb = link && getBubble(link.b);
+      if (link && la && lb) {
+        const mid = worldToScreen((la.x + lb.x) / 2, (la.y + lb.y) / 2);
+        els.linkDeleteBtn.style.left = `${mid.x}px`;
+        els.linkDeleteBtn.style.top = `${mid.y}px`;
+        els.linkDeleteBtn.classList.add("show");
+      } else {
+        linkDeleteId = null;
+        els.linkDeleteBtn.classList.remove("show");
+      }
+    } else {
+      els.linkDeleteBtn.classList.remove("show");
     }
 
     if (gesture?.type === "bubble" && gesture.connecting) {
@@ -2887,6 +2990,18 @@ button:disabled {
         if (gesture?.type === "bubble" && gesture.id === bubble.id && !gesture.movedFar) {
           gesture.dragReady = true;
           showToast("移動");
+          if (bubble.type !== "group") {
+            // そのまま動かさずに押し続けたら、PCと同じ「つなぐ」モードへ
+            gesture.connectTimer = setTimeout(() => {
+              if (gesture?.type === "bubble" && gesture.id === bubble.id && !gesture.movedFar && !gesture.connecting) {
+                gesture.connecting = true;
+                gesture.clientX = event.clientX;
+                gesture.clientY = event.clientY;
+                showToast("つなぎ先で離す");
+                render();
+              }
+            }, 750);
+          }
         }
       }, 180);
     }
@@ -2936,6 +3051,7 @@ button:disabled {
 
   function onBubblePointerDown(event) {
     clearTimeout(pendingGroupRenameTimer);
+    linkDeleteId = null;
     const el = event.currentTarget;
     const bubble = getBubble(el.dataset.id);
     if (!bubble) return;
@@ -2958,6 +3074,7 @@ button:disabled {
         if (startPinchPanFromPointers()) {
           if (previousGesture?.longTimer) clearTimeout(previousGesture.longTimer);
           if (previousGesture?.dragTimer) clearTimeout(previousGesture.dragTimer);
+          if (previousGesture?.connectTimer) clearTimeout(previousGesture.connectTimer);
           el.setPointerCapture(event.pointerId);
           render();
           return;
@@ -3026,6 +3143,7 @@ button:disabled {
       if (moved > 8) {
         if (gesture.longTimer) clearTimeout(gesture.longTimer);
         if (gesture.dragTimer) clearTimeout(gesture.dragTimer);
+        if (gesture.connectTimer) clearTimeout(gesture.connectTimer);
         gesture.touchPanned = true;
         camera.x = gesture.startCamera.x - (event.clientX - gesture.startX) / camera.zoom;
         camera.y = gesture.startCamera.y - (event.clientY - gesture.startY) / camera.zoom;
@@ -3090,6 +3208,7 @@ button:disabled {
     if (gesture.longTimer) clearTimeout(gesture.longTimer);
     if (gesture.timer) clearTimeout(gesture.timer);
     if (gesture.dragTimer) clearTimeout(gesture.dragTimer);
+    if (gesture.connectTimer) clearTimeout(gesture.connectTimer);
 
     if (gesture.touchPanned) {
       gesture = null;
@@ -3162,6 +3281,7 @@ button:disabled {
       return;
     }
 
+    const gestureMovedFarSnapshot = gesture.movedFar;
     const moving = (gesture.movingIds || [bubble.id]).map(getBubble).filter(Boolean);
     const pointerWorld = screenToWorld(event.clientX, event.clientY);
     const group = dropGroupForBubble(bubble, pointerWorld);
@@ -3178,6 +3298,7 @@ button:disabled {
         resizeAncestors(item);
       }
     }
+    if (!gestureMovedFarSnapshot && bubble.type !== "group") lastTappedBubbleId = bubble.id;
     dropTargetId = null;
     clearDragWarps();
     gesture = null;
@@ -3203,6 +3324,10 @@ button:disabled {
       editGroupName(bubble);
       return;
     }
+    editBubbleText(bubble);
+  }
+
+  function editBubbleText(bubble) {
     openDialog({ title: "メモを編集", value: bubble.text || "", okLabel: "保存" }).then(next => {
       if (next === null) return;
       bubble.text = next.trim() || bubble.text;
@@ -3340,6 +3465,7 @@ button:disabled {
       const previousGesture = gesture;
       if (previousGesture?.longTimer) clearTimeout(previousGesture.longTimer);
       if (previousGesture?.dragTimer) clearTimeout(previousGesture.dragTimer);
+      if (previousGesture?.connectTimer) clearTimeout(previousGesture.connectTimer);
       lassoPoints = [];
       lassoCtx.clearRect(0, 0, board.w, board.h);
       const points = [...pointerMap.values()];
@@ -3637,6 +3763,7 @@ button:disabled {
     if (event.target !== els.stage) return;
     event.preventDefault();
     clearTimeout(pendingGroupRenameTimer);
+    linkDeleteId = null;
     startCanvasGesture(event);
   });
   els.stage.addEventListener("pointermove", event => {
@@ -3725,12 +3852,30 @@ button:disabled {
   });
   els.alignVerticalBtn.addEventListener("pointerdown", event => startAlignGesture(event, "vertical"));
   els.alignHorizontalBtn.addEventListener("pointerdown", event => startAlignGesture(event, "horizontal"));
+  els.linkDeleteBtn.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    removeLink(linkDeleteId);
+  });
+
   els.colorBtn.addEventListener("pointerdown", event => {
     event.preventDefault();
     els.colorPalette.classList.toggle("open");
     updateColorSwatches();
   });
   els.colorPalette.addEventListener("pointerdown", event => {
+    if (event.target.closest("#editTextBtn")) {
+      event.preventDefault();
+      els.colorPalette.classList.remove("open");
+      const bubble = getBubble(selectedId) || getBubble(lastTappedBubbleId);
+      if (!bubble) {
+        showToast("先にバブルをタップしてね");
+        return;
+      }
+      if (bubble.type === "group") editGroupName(bubble);
+      else editBubbleText(bubble);
+      return;
+    }
     const swatch = event.target.closest(".color-swatch");
     if (!swatch) return;
     event.preventDefault();
