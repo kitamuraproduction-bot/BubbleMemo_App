@@ -552,9 +552,10 @@ button:disabled {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  bottom: calc(12px + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
   z-index: 32;
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   padding: 10px;
   border-radius: 22px;
@@ -576,17 +577,31 @@ button:disabled {
   padding: 12px 14px;
   font-size: 16px;
   font-weight: 800;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  max-height: 108px;
+  overflow-y: auto;
   user-select: text;
+  -webkit-user-select: text;
   touch-action: auto;
 }
 
-#addBtn {
+#newlineBtn {
   min-width: 58px;
-  padding: 0 18px;
+  min-height: 46px;
+  padding: 0 16px;
   border-radius: 16px;
-  background: var(--accent);
-  color: white;
+  background: rgba(53, 120, 229, .13);
+  color: var(--accent);
   font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 #toast {
@@ -705,6 +720,9 @@ button:disabled {
   padding: 11px 12px;
   font-size: 16px;
   font-weight: 800;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
   color: var(--ink);
   outline: 0;
   user-select: text;
@@ -778,6 +796,34 @@ button:disabled {
 .secondary-btn {
   background: rgba(101, 112, 133, .13);
   color: var(--ink);
+}
+
+.transfer-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.file-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.file-label input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  touch-action: auto;
 }
 
 .help-text {
@@ -936,9 +982,9 @@ button:disabled {
     padding: 8px;
   }
 
-  #addBtn {
+  #newlineBtn {
     min-width: 52px;
-    padding: 0 13px;
+    padding: 0 12px;
   }
 }
 </style>
@@ -1022,10 +1068,10 @@ button:disabled {
     </button>
   </div>
 
-  <form id="inputBar" autocomplete="off">
-    <input id="memoInput" placeholder="メモを書く" autocomplete="off" autocorrect="off" autocapitalize="off">
-    <button id="addBtn" type="submit">追加</button>
-  </form>
+  <div id="inputBar">
+    <textarea id="memoInput" rows="1" placeholder="メモを書く" enterkeyhint="send" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div id="newlineBtn" role="button" aria-label="改行">改行</div>
+  </div>
 
   <button id="linkDeleteBtn" title="つながりを削除">
     <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -1052,6 +1098,15 @@ button:disabled {
     <button class="primary-btn" id="newBoardBtn">新規ボード</button>
     <button class="primary-btn" id="shareLinkBtn">このボードを送る</button>
     <p class="help-text">ボードのコピーが入ったリンクをクリップボードにコピーします。受け取った人がリンクを開くと、その人の端末に新しいボードとして取り込まれ、以後はお互い別々に編集します（共同編集にはなりません）。</p>
+    <div class="transfer-actions" aria-label="JSON入出力">
+      <button class="secondary-btn" id="exportJsonBtn">JSONを書き出す</button>
+      <label class="secondary-btn file-label" for="importJsonFile">
+        <span>JSONを読み込む</span>
+        <input id="importJsonFile" type="file" accept=".json,application/json">
+      </label>
+      <p class="help-text">ボードの状態をJSONファイルとして保存・復元できます。書き出したJSONをAIに渡して編集させ、読み込んで反映するといった使い方もできます（読み込みは新しいボードとして取り込まれます）。</p>
+    </div>
+    <p class="help-text" style="opacity:.55">BubbleMemo v1.8</p>
     <div id="boardList"></div>
   </aside>
 
@@ -1059,7 +1114,7 @@ button:disabled {
   <section id="appDialog" role="dialog" aria-modal="true" hidden>
     <h2 id="dialogTitle"></h2>
     <p id="dialogMessage" hidden></p>
-    <input id="dialogInput" autocomplete="off" autocorrect="off" autocapitalize="off" hidden>
+    <textarea id="dialogInput" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" hidden></textarea>
     <div class="dialog-actions">
       <button class="secondary-btn" id="dialogCancelBtn">キャンセル</button>
       <button class="primary-btn" id="dialogOkBtn">OK</button>
@@ -1101,7 +1156,7 @@ button:disabled {
     lassoCanvas: document.getElementById("lassoCanvas"),
     inputBar: document.getElementById("inputBar"),
     input: document.getElementById("memoInput"),
-    addBtn: document.getElementById("addBtn"),
+    newlineBtn: document.getElementById("newlineBtn"),
     toast: document.getElementById("toast"),
     menuBtn: document.getElementById("menuBtn"),
     undoBtn: document.getElementById("undoBtn"),
@@ -1127,6 +1182,8 @@ button:disabled {
     bgSelect: document.getElementById("bgSelect"),
     newBoardBtn: document.getElementById("newBoardBtn"),
     shareLinkBtn: document.getElementById("shareLinkBtn"),
+    exportJsonBtn: document.getElementById("exportJsonBtn"),
+    importJsonFile: document.getElementById("importJsonFile"),
     boardList: document.getElementById("boardList"),
     dialogShade: document.getElementById("dialogShade"),
     appDialog: document.getElementById("appDialog"),
@@ -2103,6 +2160,52 @@ button:disabled {
     render();
   }
 
+  function exportBoardJson() {
+    saveCurrentData();
+    const record = boards.find(b => b.id === currentBoardId);
+    const pack = {
+      app: "BubbleMemo",
+      format: "bubblememo-board",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      board: {
+        name: record?.name || "メモボード",
+        bg: currentBg
+      },
+      data: serializeState()
+    };
+    const blob = new Blob([JSON.stringify(pack, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${(record?.name || "board").replace(/[\\/:*?"<>|]/g, "_")}.bubblememo.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("JSONを書き出しました");
+  }
+
+  function importBoardJsonFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        saveCurrentData();
+        importBoardPack(JSON.parse(String(reader.result || "")));
+      } catch (error) {
+        showToast(error?.message || "JSONを読み込めませんでした");
+      } finally {
+        els.importJsonFile.value = "";
+      }
+    };
+    reader.onerror = () => {
+      els.importJsonFile.value = "";
+      showToast("ファイルを読み込めませんでした");
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
   async function buildShareUrl() {
     saveCurrentData();
     const record = boards.find(b => b.id === currentBoardId);
@@ -2166,29 +2269,36 @@ button:disabled {
     urlPromise.then(url => copyTextRobust(url).then(ok => ok ? done() : fallback(url)));
   }
 
+  function syncMemoInputHeight() {
+    const input = els.input;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 108)}px`;
+  }
+
   function attachMemoInputEvents(input) {
     input.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.isComposing) {
+        if (event.shiftKey) return; // Shift+Enterは改行（textareaの既定動作）
         event.preventDefault();
         addMemo();
       }
     });
+    input.addEventListener("input", syncMemoInputHeight);
   }
 
   function resetMemoInput() {
-    // iOSではIME変換セッションが入力欄のDOM要素に紐づいたまま残り、
-    // 変換中にvalueを消すと以後のキー入力が届かなくなる。blurで変換を
-    // 強制確定して値を取り出したあと、要素ごと新品に差し替えて、同じ
-    // ジェスチャ内でフォーカスを戻す。毎回まっさらな編集セッションになる。
-    const old = els.input;
-    old.blur();
-    const text = old.value;
-    const fresh = old.cloneNode(false);
-    fresh.value = "";
-    old.replaceWith(fresh);
-    els.input = fresh;
-    attachMemoInputEvents(fresh);
-    fresh.focus({ preventScroll: true });
+    // バブル生成はEnter（確定後の送信キー）経由のみ。Enterの時点で
+    // IMEの変換は必ず確定済みなので、値を消すだけで安全にリセットできる。
+    const input = els.input;
+    const text = input.value;
+    input.value = "";
+    try {
+      input.setSelectionRange(0, 0);
+    } catch {
+      /* 一部環境では未対応 */
+    }
+    if (document.activeElement !== input) input.focus({ preventScroll: true });
+    syncMemoInputHeight();
     return text;
   }
 
@@ -2811,7 +2921,10 @@ button:disabled {
         event.preventDefault();
         event.stopPropagation();
         const now = performance.now();
-        if (lastLinkTap.id === link.id && now - lastLinkTap.time < 360) {
+        if (event.pointerType === "mouse") {
+          // PCはワンクリックで削除ボタンを表示
+          linkDeleteId = link.id;
+        } else if (lastLinkTap.id === link.id && now - lastLinkTap.time < 360) {
           linkDeleteId = link.id;
         } else if (linkDeleteId !== link.id) {
           linkDeleteId = null;
@@ -3730,20 +3843,49 @@ button:disabled {
     }
   });
 
-  els.inputBar.addEventListener("submit", event => {
+  function insertMemoNewline() {
+    const input = els.input;
+    if (document.activeElement !== input) input.focus({ preventScroll: true });
+    let inserted = false;
+    try {
+      // 編集操作として挿入（IMEやアンドゥ履歴と整合する）
+      inserted = document.execCommand("insertText", false, "\n");
+    } catch {
+      inserted = false;
+    }
+    if (!inserted) {
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.value = `${input.value.slice(0, start)}\n${input.value.slice(end)}`;
+      const pos = start + 1;
+      try {
+        input.setSelectionRange(pos, pos);
+      } catch {
+        /* noop */
+      }
+    }
+    syncMemoInputHeight();
+  }
+
+  let touchNewlineUntil = 0;
+  els.newlineBtn.addEventListener("pointerdown", event => {
+    // ボタンにフォーカスを奪わせない（PC向け）
     event.preventDefault();
-    addMemo();
   });
-  els.addBtn.addEventListener("pointerdown", event => {
-    // ボタンにフォーカスを奪わせず、キーボードを開いたまま連続追加できるようにする
+  els.newlineBtn.addEventListener("touchstart", event => {
     event.preventDefault();
-  });
-  els.addBtn.addEventListener("touchend", event => {
-    // iOSは合成クリックを経由すると入力欄のIME/フォーカス状態が壊れて
-    // 次の文字が打てなくなるため、タッチ終了時点で確定してクリックを抑止する
-    event.preventDefault();
-    addMemo();
+    event.stopPropagation();
+    touchNewlineUntil = performance.now() + 700;
+    insertMemoNewline();
   }, { passive: false });
+  els.newlineBtn.addEventListener("touchend", event => {
+    event.preventDefault();
+  }, { passive: false });
+  els.newlineBtn.addEventListener("click", event => {
+    event.preventDefault();
+    if (performance.now() < touchNewlineUntil) return;
+    insertMemoNewline();
+  });
   attachMemoInputEvents(els.input);
 
   els.stage.addEventListener("contextmenu", event => event.preventDefault());
@@ -3800,6 +3942,13 @@ button:disabled {
   els.shareLinkBtn.addEventListener("click", event => {
     event.preventDefault();
     shareBoardLink();
+  });
+  els.exportJsonBtn.addEventListener("click", event => {
+    event.preventDefault();
+    exportBoardJson();
+  });
+  els.importJsonFile.addEventListener("change", event => {
+    importBoardJsonFile(event.target.files && event.target.files[0]);
   });
   els.bgSelect.addEventListener("change", event => {
     currentBg = event.target.value;
@@ -3919,7 +4068,38 @@ button:disabled {
   });
 
 
+  window.addEventListener("keydown", event => {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    if (key !== "z" && key !== "y") return;
+    if (dialogState) return; // ダイアログ編集中はテキストのundoを優先
+    if (document.activeElement === els.input && els.input.value) return; // 入力中の文字はネイティブundo
+    event.preventDefault();
+    if (key === "y" || (key === "z" && event.shiftKey)) {
+      redo();
+    } else {
+      undo();
+    }
+  });
+
   window.addEventListener("resize", resizeBoard);
+
+  // iOS Safariはキーボード表示時にページごと上へパンしてしまい、
+  // 入力バーとキーボードの間に隙間ができたり、座標系がずれて
+  // ピンチの中心がおかしくなる。visualViewportでキーボードの高さを
+  // 測って入力バーを自前でキーボード直上に置き、パンは毎回打ち消す。
+  function syncKeyboardInset() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
+    if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncKeyboardInset);
+    window.visualViewport.addEventListener("scroll", syncKeyboardInset);
+    syncKeyboardInset();
+  }
   window.addEventListener("pointermove", event => {
     updateSelectionSizeGesture(event);
     updateAlignGesture(event);
@@ -3956,6 +4136,7 @@ button:disabled {
     if (!handled) loadBoard(currentBoardId);
   });
   resizeBoard();
+  els.input.focus({ preventScroll: true });
   requestAnimationFrame(tick);
 })();
 </script>
