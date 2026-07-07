@@ -1106,7 +1106,7 @@ button:disabled {
       </label>
       <p class="help-text">ボードの状態をJSONファイルとして保存・復元できます。書き出したJSONをAIに渡して編集させ、読み込んで反映するといった使い方もできます（読み込みは新しいボードとして取り込まれます）。</p>
     </div>
-    <p class="help-text" style="opacity:.55">BubbleMemo v1.8</p>
+    <p class="help-text" style="opacity:.55">BubbleMemo v1.7</p>
     <div id="boardList"></div>
   </aside>
 
@@ -2284,7 +2284,22 @@ button:disabled {
       }
     });
     input.addEventListener("input", syncMemoInputHeight);
+    // 入力バーは何があってもアクティブに保つ（フォーカスが外れた瞬間、
+    // その場で同期的に取り返す。タップ処理の中で同期実行される場合は
+    // ユーザー操作としてOSに受理されるため、キーボードも維持される）
+    input.addEventListener("focusout", () => {
+      if (dialogState) return; // ダイアログ入力中だけは譲る
+      els.input.focus({ preventScroll: true });
+    });
   }
+
+  // 保険の常時監視: なんらかの理由でフォーカスが外れたままなら取り返す
+  setInterval(() => {
+    if (dialogState) return;
+    if (document.activeElement !== els.input) {
+      els.input.focus({ preventScroll: true });
+    }
+  }, 400);
 
   function resetMemoInput() {
     // バブル生成はEnter（確定後の送信キー）経由のみ。Enterの時点で
@@ -4091,13 +4106,29 @@ button:disabled {
   function syncKeyboardInset() {
     const vv = window.visualViewport;
     if (!vv) return;
-    const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
+
+    const keyboardOpen = document.activeElement === els.input && vv.height < window.screen.height * .82;
+    if (keyboardOpen) {
+      // iOSではキーボード表示時に visualViewport の縮小とページ側のパンが
+      // 同時に起きる端末があるため、bottom の加算ではなく表示領域の下端から
+      // 入力バー位置を直接決める。これで二重補正による画面外移動を防ぐ。
+      document.documentElement.style.setProperty("--kb-inset", "0px");
+      els.inputBar.style.bottom = "auto";
+      const top = Math.max(8, Math.round(vv.offsetTop + vv.height - els.inputBar.offsetHeight - 8));
+      els.inputBar.style.top = `${top}px`;
+    } else {
+      els.inputBar.style.top = "";
+      els.inputBar.style.bottom = "";
+      document.documentElement.style.setProperty("--kb-inset", "0px");
+    }
+
     if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
   }
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", syncKeyboardInset);
     window.visualViewport.addEventListener("scroll", syncKeyboardInset);
+    els.input.addEventListener("focus", syncKeyboardInset);
+    els.input.addEventListener("blur", syncKeyboardInset);
     syncKeyboardInset();
   }
   window.addEventListener("pointermove", event => {
